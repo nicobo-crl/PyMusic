@@ -55,7 +55,7 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Actions</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -69,9 +69,6 @@
                         </span>
                     </td>
                     <td>
-                        <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" class="edit-btn">
-                            <i class="fas fa-edit"></i> Edit
-                        </a>
                         {% if user.username != 'admin' and user.id != session.get('user_id') %}
                         <a href="/delete_user/{{ user.id }}" class="delete-btn" onclick="return confirm('Delete this user?');">
                             <i class="fas fa-trash"></i> Delete
@@ -84,46 +81,6 @@
                 {% endfor %}
             </tbody>
         </table>
-
-        <h1 style="margin-top: 40px;">Cache Management</h1>
-
-        <div class="cache-summary">
-            <p>Total Cache Size: <strong>{{ cache_size_mb }} MB</strong></p>
-            <p>Cached Items: <strong>{{ cache_items|length }}</strong></p>
-            <a href="{{ url_for('admin_clear_cache') }}" class="delete-btn" onclick="return confirm('Are you sure you want to clear the entire cache?');">
-                <i class="fas fa-bomb"></i> Clear Entire Cache
-            </a>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Song ID</th>
-                    <th>Filepath</th>
-                    <th>Cached At</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in cache_items %}
-                <tr>
-                    <td>{{ item.song_id }}</td>
-                    <td>{{ item.filepath }}</td>
-                    <td>{{ item.created_at }}</td>
-                    <td>
-                        <a href="{{ url_for('admin_delete_cached_song', song_id=item.song_id) }}" class="delete-btn" onclick="return confirm('Delete this cached song?');">
-                            <i class="fas fa-trash"></i> Delete
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" style="text-align: center; color: #888;">Cache is empty.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
     </div>
 </body>
 </html>

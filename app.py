@@ -1,11 +1,10 @@
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context, session, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context, session, redirect, url_for
 import yt_dlp
 import requests
 import re
 import sqlite3
 import random
 import json
-import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -32,12 +31,6 @@ def init_db():
                       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                       PRIMARY KEY (user_id, song_id))''')
         
-        # Cache Table
-        c.execute('''CREATE TABLE IF NOT EXISTS cache
-                     (song_id TEXT PRIMARY KEY,
-                      filepath TEXT NOT NULL,
-                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-
         # Default Admin
         c.execute("SELECT * FROM users WHERE username = ?", ('admin',))
         if not c.fetchone():
@@ -51,26 +44,6 @@ def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
-
-def get_cache_size():
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(CACHE_DIR):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
-    return total_size
-
-def sanitize_song_id(song_id):
-    """Prevents path traversal by keeping only alphanumeric chars."""
-    return "".join(c for c in song_id if c.isalnum())
-
-def clear_cache():
-    conn = get_db_connection()
-    conn.execute("DELETE FROM cache")
-    conn.commit()
-    conn.close()
-    for f in os.listdir(CACHE_DIR):
-        os.remove(os.path.join(CACHE_DIR, f))
 
 # --- HELPER FUNCTIONS (Keep existing ones exactly as they were) ---
 # Copy: search_deezer, get_chart, get_recommendations, get_youtube_stream_url, fetch_lyrics
@@ -152,80 +125,17 @@ def get_recommendations(artist_id):
         return songs[:15]
     except: return []
 
-CACHE_DIR = "cache"
-MAX_CACHE_SIZE_MB = 100
-if not os.path.exists(CACHE_DIR):
-    os.makedirs(CACHE_DIR)
-
-def evict_cache():
-    """Evicts oldest files if cache size exceeds the limit."""
-    cache_size_mb = get_cache_size() / (1024 * 1024)
-    if cache_size_mb > MAX_CACHE_SIZE_MB:
-        conn = get_db_connection()
-        files_to_delete = conn.execute("SELECT * FROM cache ORDER BY created_at ASC").fetchall()
-
-        songs_deleted = []
-        while cache_size_mb > MAX_CACHE_SIZE_MB:
-            if not files_to_delete:
-                break
-
-            song_to_delete = files_to_delete.pop(0)
-            file_path = song_to_delete['filepath']
-
-            if os.path.exists(file_path):
-                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-                os.remove(file_path)
-                cache_size_mb -= file_size_mb
-                songs_deleted.append(song_to_delete['song_id'])
-
-        if songs_deleted:
-            # Create a string of placeholders for the IN clause
-            placeholders = ','.join('?' for _ in songs_deleted)
-            conn.execute(f"DELETE FROM cache WHERE song_id IN ({placeholders})", songs_deleted)
-            conn.commit()
-
-        conn.close()
-
-def get_youtube_stream_url(artist, title, song_id):
-    song_id = sanitize_song_id(song_id)
-    safe_filename = f"{song_id}.m4a"
-    cached_path = os.path.join(CACHE_DIR, safe_filename)
-    part_path = cached_path + ".part"
-
-    if os.path.exists(cached_path):
-        return {'url': f"/stream_proxy?song_id={song_id}"}
-
-    # If another process is downloading, wait for it to finish
-    if os.path.exists(part_path):
-        return {'status': 'downloading', 'message': 'Song is currently being downloaded, please try again shortly.'}
-
+def get_youtube_stream_url(artist, title):
+    # ... (Keep existing code) ...
     query = f"{artist} - {title} audio"
-    ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/best',
-        'quiet': True,
-        'noplaylist': True,
-        'geo_bypass': True,
-        'outtmpl': part_path,
-        'retries': 3,
-    }
-
+    ydl_opts = {'format': 'bestaudio[ext=m4a]/best', 'quiet': True, 'noplaylist': True, 'geo_bypass': True, 'source_address': '0.0.0.0'}
+    search_query = f"ytsearch1:{query}"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            ydl.extract_info(f"ytsearch1:{query}", download=True)
-            if os.path.exists(part_path):
-                os.rename(part_path, cached_path)
-                conn = get_db_connection()
-                conn.execute("INSERT INTO cache (song_id, filepath) VALUES (?, ?)", (song_id, cached_path))
-                conn.commit()
-                conn.close()
-                evict_cache()  # Check and evict if necessary
-                return {'url': f"/stream_proxy?song_id={song_id}"}
-        except Exception as e:
-            app.logger.error(f"Error downloading {query}: {e}")
-            if os.path.exists(part_path):
-                os.remove(part_path)
-            return None
-    return None
+            info = ydl.extract_info(search_query, download=False)
+            video = info['entries'][0] if 'entries' in info else info
+            return {'url': video['url']}
+        except: return None
 
 def fetch_lyrics(artist, title):
     # ... (Keep existing code) ...
@@ -314,65 +224,8 @@ def admin_panel():
     if not session.get('user_id') or session.get('role') != 'admin': return redirect(url_for('index'))
     conn = get_db_connection()
     users = conn.execute('SELECT * FROM users').fetchall()
-    cache_items = conn.execute('SELECT * FROM cache').fetchall()
     conn.close()
-    cache_size_mb = get_cache_size() / (1024 * 1024)
-    return render_template('admin.html', users=users, cache_items=cache_items, cache_size_mb=f"{cache_size_mb:.2f}")
-
-@app.route('/admin/clear_cache')
-def admin_clear_cache():
-    if not session.get('user_id') or session.get('role') != 'admin': return "Unauthorized", 401
-    clear_cache()
-    return redirect(url_for('admin_panel'))
-
-@app.route('/admin/delete_cached_song/<song_id>')
-def admin_delete_cached_song(song_id):
-    if not session.get('user_id') or session.get('role') != 'admin': return "Unauthorized", 401
-    song_id = sanitize_song_id(song_id)
-    conn = get_db_connection()
-    conn.execute("DELETE FROM cache WHERE song_id = ?", (song_id,))
-    conn.commit()
-    conn.close()
-
-    safe_filename = f"{song_id}.m4a"
-    file_path = os.path.join(CACHE_DIR, safe_filename)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
-    return redirect(url_for('admin_panel'))
-
-@app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
-def admin_edit_user(user_id):
-    if not session.get('user_id') or session.get('role') != 'admin': return "Unauthorized", 401
-
-    conn = get_db_connection()
-
-    if request.method == 'POST':
-        username = request.form.get('username').strip()
-        role = request.form.get('role', 'user')
-        password = request.form.get('password')
-
-        if not username:
-            # Handle error
-            return "Username is required", 400
-
-        if password:
-            hashed_pw = generate_password_hash(password)
-            conn.execute("UPDATE users SET username = ?, role = ?, password = ? WHERE id = ?",
-                         (username, role, hashed_pw, user_id))
-        else:
-            conn.execute("UPDATE users SET username = ?, role = ? WHERE id = ?",
-                         (username, role, user_id))
-
-        conn.commit()
-        conn.close()
-        return redirect(url_for('admin_panel'))
-
-    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-    conn.close()
-    if not user:
-        return "User not found", 404
-    return render_template('edit_user.html', user=user)
+    return render_template('admin.html', users=users)
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -424,14 +277,7 @@ def recommend():
 @app.route('/play')
 def play():
     if not session.get('user_id'): return jsonify({'error': 'Unauthorized'}), 401
-    song_id = request.args.get('song_id')
-    artist = request.args.get('artist')
-    title = request.args.get('title')
-
-    if not song_id or not artist or not title:
-        return jsonify({'error': 'Missing required parameters'}), 400
-
-    return jsonify(get_youtube_stream_url(artist, title, song_id))
+    return jsonify(get_youtube_stream_url(request.args.get('artist'), request.args.get('title')))
 
 @app.route('/lyrics')
 def lyrics():
@@ -441,43 +287,16 @@ def lyrics():
 @app.route('/stream_proxy')
 def stream_proxy():
     if not session.get('user_id'): return "Unauthorized", 401
-
-    song_id = request.args.get('song_id')
-    if not song_id: return "Missing song_id", 400
-
-    song_id = sanitize_song_id(song_id)
-    safe_filename = f"{song_id}.m4a"
-    file_path = os.path.join(CACHE_DIR, safe_filename)
-
-    if not os.path.exists(file_path):
-        return "File not found", 404
-
-    range_header = request.headers.get('Range', None)
-    if not range_header:
-        return send_file(file_path, mimetype='audio/mp4')
-
-    size = os.path.getsize(file_path)
-    byte1, byte2 = 0, None
-
-    m = re.search(r'(\d+)-(\d*)', range_header)
-    g = m.groups()
-
-    if g[0]: byte1 = int(g[0])
-    if g[1]: byte2 = int(g[1])
-
-    length = size - byte1
-    if byte2 is not None:
-        length = byte2 - byte1 + 1
-
-    data = None
-    with open(file_path, 'rb') as f:
-        f.seek(byte1)
-        data = f.read(length)
-
-    rv = Response(data, 206, mimetype="audio/mp4", content_type="audio/mp4", direct_passthrough=True)
-    rv.headers.add('Content-Range', f'bytes {byte1}-{byte1 + length - 1}/{size}')
-    rv.headers.add('Accept-Ranges', 'bytes')
-    return rv
+    url = request.args.get('url')
+    if not url: return "No URL", 400
+    headers = {}
+    if 'Range' in request.headers: headers['Range'] = request.headers['Range']
+    try:
+        req = requests.get(url, stream=True, headers=headers)
+        excluded = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        res_headers = [(n, v) for (n, v) in req.headers.items() if n.lower() not in excluded]
+        return Response(stream_with_context(req.iter_content(chunk_size=8192)), status=req.status_code, headers=res_headers, content_type=req.headers.get('content-type'))
+    except Exception as e: return f"Error: {e}", 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=499)

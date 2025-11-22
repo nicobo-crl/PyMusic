@@ -3,6 +3,3 @@ venv/
 .env
 .DS_Store
 *.pycpymusic.db
-cache/
-app.log
-pymusic.db
