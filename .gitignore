@@ -2,4 +2,6 @@ __pycache__/
 venv/
 .env
 .DS_Store
-*.pycpymusic.db
+*.pyc
+*.db
+*.log

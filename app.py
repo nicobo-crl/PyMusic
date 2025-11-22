@@ -34,7 +34,9 @@ def init_db():
         # Default Admin
         c.execute("SELECT * FROM users WHERE username = ?", ('admin',))
         if not c.fetchone():
-            hashed_pw = generate_password_hash("mko09ijn")
+            # Set a temporary, secure, but known default password.
+            # The user will be forced to change this on first login.
+            hashed_pw = generate_password_hash("DEFAULT_PASSWORD_NEEDS_CHANGE")
             c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('admin', hashed_pw, 'admin'))
         conn.commit()
 
@@ -205,13 +207,56 @@ def login():
         conn = get_db_connection()
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
         conn.close()
+
         if user and check_password_hash(user['password'], password):
+            # Check for default password
+            if user['username'] == 'admin' and password == 'DEFAULT_PASSWORD_NEEDS_CHANGE':
+                session['temp_user_id'] = user['id'] # Use a temporary session
+                return redirect(url_for('change_password'))
+
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
             return redirect(url_for('index'))
-        else: return render_template('login.html', error="Invalid Credentials")
+        else:
+            return render_template('login.html', error="Invalid Credentials")
     return render_template('login.html')
+
+@app.route('/change_password', methods=['GET', 'POST'])
+def change_password():
+    if 'temp_user_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or new_password != confirm_password:
+            return render_template('change_password.html', error="Passwords do not match.")
+
+        if new_password == "DEFAULT_PASSWORD_NEEDS_CHANGE":
+            return render_template('change_password.html', error="Password cannot be the default password.")
+
+        user_id = session['temp_user_id']
+        hashed_pw = generate_password_hash(new_password)
+
+        conn = get_db_connection()
+        conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_pw, user_id))
+        conn.commit()
+        conn.close()
+
+        session.pop('temp_user_id', None)
+        # Log the user in properly now
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        conn.close()
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['role'] = user['role']
+
+        return redirect(url_for('index'))
+
+    return render_template('change_password.html')
 
 @app.route('/logout')
 def logout():
@@ -299,4 +344,4 @@ def stream_proxy():
     except Exception as e: return f"Error: {e}", 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True, port=499)
+    app.run(host='0.0.0.0', debug=True, port=5000)
