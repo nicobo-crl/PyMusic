@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - PySpotify</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-box {
+            text-align: center;
+            background: #181818;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        input {
+            padding: 10px;
+            border-radius: 20px;
+            border: none;
+            width: 200px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .error { color: #ff5555; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>PySpotify</h2>
+        <form method="POST">
+            <input type="password" name="password" placeholder="Enter Password" autofocus required>
+            <br>
+            <button type="submit">Login</button>
+        </form>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+    </div>
+</body>
+</html>

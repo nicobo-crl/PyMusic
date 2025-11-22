@@ -3,6 +3,7 @@ import yt_dlp
 import requests
 import re
 import secrets
+import random
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -23,6 +24,7 @@ def search_deezer(query):
                     'id': item['id'],
                     'title': item['title'],
                     'artist': item['artist']['name'],
+                    'artist_id': item['artist']['id'], # NEEDED FOR RECOMMENDATIONS
                     'album': item['album']['title'],
                     'cover': item['album']['cover_medium'], 
                     'cover_xl': item['album']['cover_xl'],
@@ -30,6 +32,50 @@ def search_deezer(query):
                 })
         return songs
     except Exception as e:
+        return []
+
+def get_recommendations(artist_id):
+    """
+    Fetches tracks from similar artists.
+    """
+    try:
+        # 1. Get Related Artists
+        rel_url = f"https://api.deezer.com/artist/{artist_id}/related"
+        rel_data = requests.get(rel_url).json()
+        
+        songs = []
+        artists_to_check = []
+        
+        # Add the original artist to the mix
+        artists_to_check.append(artist_id)
+        
+        # Add up to 4 related artists
+        if 'data' in rel_data:
+            for art in rel_data['data'][:4]:
+                artists_to_check.append(art['id'])
+        
+        # 2. Get Top Tracks for these artists
+        for aid in artists_to_check:
+            top_url = f"https://api.deezer.com/artist/{aid}/top?limit=3"
+            top_data = requests.get(top_url).json()
+            if 'data' in top_data:
+                for item in top_data['data']:
+                    songs.append({
+                        'id': item['id'],
+                        'title': item['title'],
+                        'artist': item['artist']['name'],
+                        'artist_id': item['artist']['id'],
+                        'album': item['album']['title'],
+                        'cover': item['album']['cover_medium'], 
+                        'cover_xl': item['album']['cover_xl'],
+                        'duration': item['duration']
+                    })
+        
+        # Shuffle to make it feel like a radio
+        random.shuffle(songs)
+        return songs
+    except Exception as e:
+        print(f"Rec Error: {e}")
         return []
 
 def get_chart():
@@ -44,6 +90,7 @@ def get_chart():
                     'id': item['id'],
                     'title': item['title'],
                     'artist': item['artist']['name'],
+                    'artist_id': item['artist']['id'],
                     'album': item['album']['title'],
                     'cover': item['album']['cover_medium'], 
                     'cover_xl': item['album']['cover_xl'],
@@ -55,18 +102,13 @@ def get_chart():
 
 def get_youtube_stream_url(artist, title):
     query = f"{artist} - {title} audio"
-    
-    # --- CRITICAL FIX FOR IPHONE ---
-    # 1. We search for 'bestaudio[ext=m4a]' to force AAC format.
-    # 2. We use 'ipv4' to prevent IPv6 timeouts on some networks.
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/best', 
+        'format': 'bestaudio[ext=m4a]/best', # iPhone Fix
         'quiet': True,
         'noplaylist': True,
         'geo_bypass': True,
-        'source_address': '0.0.0.0', # Force IPv4
+        'source_address': '0.0.0.0',
     }
-    
     search_query = f"ytsearch1:{query}"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -140,6 +182,13 @@ def chart():
     if not session.get('logged_in'): return jsonify([])
     return jsonify(get_chart())
 
+@app.route('/recommend')
+def recommend():
+    if not session.get('logged_in'): return jsonify([])
+    artist_id = request.args.get('artist_id')
+    if not artist_id: return jsonify([])
+    return jsonify(get_recommendations(artist_id))
+
 @app.route('/play')
 def play():
     if not session.get('logged_in'): return jsonify({'error': 'Unauthorized'}), 401
@@ -153,35 +202,26 @@ def lyrics():
 @app.route('/stream_proxy')
 def stream_proxy():
     if not session.get('logged_in'): return "Unauthorized", 401
-    
     url = request.args.get('url')
     if not url: return "No URL", 400
     
-    # 1. Forward Headers from iPhone (Crucial for 'Range' support)
     headers = {}
     if 'Range' in request.headers:
         headers['Range'] = request.headers['Range']
     
     try:
-        # 2. Make request to YouTube with the Range header
         req = requests.get(url, stream=True, headers=headers)
-        
-        # 3. Filter headers to pass back (exclude hop-by-hop headers)
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         response_headers = [(name, value) for (name, value) in req.headers.items()
                             if name.lower() not in excluded_headers]
-        
-        # 4. Create the response
-        # Safari expects a 206 Partial Content status if it asked for a Range
-        resp = Response(stream_with_context(req.iter_content(chunk_size=8192)),
+        return Response(stream_with_context(req.iter_content(chunk_size=8192)),
                         status=req.status_code,
                         headers=response_headers,
                         content_type=req.headers.get('content-type'))
-        
-        return resp
     except Exception as e:
-        print(f"Stream Error: {e}")
         return f"Error: {e}", 500
 
 if __name__ == '__main__':
+    # CHANGED PORT TO 499
+    # Note: On Linux/Mac, ports < 1024 require sudo. On Windows, this is fine.
     app.run(host='0.0.0.0', debug=True, port=4999)

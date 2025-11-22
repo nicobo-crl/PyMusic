@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#121212">
     <title>PySpotify</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -16,29 +18,41 @@
                 <li id="nav-home" class="active" onclick="showHome()"><i class="fas fa-home"></i> Home</li>
                 <li id="nav-search" onclick="focusSearch()"><i class="fas fa-search"></i> Search</li>
                 <li id="nav-library" onclick="showFavourites()"><i class="fas fa-heart"></i> Favourites</li>
+                <li id="nav-queue" onclick="showQueue()"><i class="fas fa-list-ul"></i> Queue <span id="queueCount" style="display:none; background:var(--primary); color:black; border-radius:50%; padding:2px 6px; font-size:10px; margin-left:5px;">0</span></li>
             </ul>
         </div>
 
         <div class="main-content">
             <div class="search-bar-container">
-                <input type="text" id="searchInput" placeholder="What do you want to listen to?">
-                <button onclick="performSearch()">Search</button>
+                <input type="text" id="searchInput" placeholder="Search songs...">
+                <button onclick="performSearch()"><i class="fas fa-search"></i></button>
             </div>
 
             <div class="content-split" id="contentSplit">
-                <!-- Song List Area -->
                 <div class="results-section" id="resultsSection">
-                    <h2 id="sectionTitle">Top Charts</h2>
+                    <!-- Sections for Dynamic Content -->
+                    <h2 id="sectionTitle">Home</h2>
+                    
+                    <div id="recentsContainer" class="recents-wrapper" style="display:none;">
+                        <h3>Recently Played</h3>
+                        <div id="recentsList" class="horizontal-scroll"></div>
+                    </div>
+
+                    <div id="recommendationsContainer" style="display:none; margin-bottom: 20px;">
+                        <h3>Made For You</h3>
+                        <div id="recommendationsList" class="horizontal-scroll"></div>
+                    </div>
+
+                    <h3 id="chartTitle">Top Charts</h3>
                     <div id="resultsList" class="song-list">
-                        <div class="loading-text">Loading Charts...</div>
+                        <div class="loading-text">Loading...</div>
                     </div>
                 </div>
                 
-                <!-- Lyrics Panel (Collapsible) -->
                 <div class="lyrics-section" id="lyricsSection">
                     <h2>Lyrics</h2>
                     <div id="lyricsContainer" class="lyrics-container">
-                        <p class="lyrics-placeholder">Lyrics will appear here</p>
+                        <p class="lyrics-placeholder">Play a song to see lyrics</p>
                     </div>
                 </div>
             </div>
@@ -50,9 +64,7 @@
         <div class="now-playing">
             <div class="img-container">
                 <img id="albumArt" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
-                <div id="loadingOverlay" class="loading-overlay" style="display:none;">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </div>
+                <div id="loadingOverlay" class="loading-overlay" style="display:none;"><i class="fas fa-spinner fa-spin"></i></div>
             </div>
             <div class="track-info">
                 <div id="trackName" class="track-name">Not Playing</div>
@@ -65,7 +77,7 @@
             <div class="control-buttons">
                 <button onclick="seek(-10)" class="step"><i class="fas fa-backward"></i></button>
                 <button id="playPauseBtn" onclick="togglePlay()"><i class="fas fa-play-circle"></i></button>
-                <button onclick="seek(10)" class="step"><i class="fas fa-forward"></i></button>
+                <button onclick="playNextInQueue(true)" class="step"><i class="fas fa-forward"></i></button>
             </div>
             <div class="progress-container">
                 <span id="currentTime">0:00</span>
@@ -75,15 +87,19 @@
         </div>
 
         <div class="volume-controls">
-            <!-- Lyrics Toggle Button -->
-            <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon active" onclick="toggleLyricsPanel()" title="Toggle Lyrics"></i>
-            <div class="separator"></div>
-            <i class="fas fa-volume-up"></i>
-            <input type="range" min="0" max="1" step="0.1" value="1" onchange="setVolume(this.value)">
+            <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon active" onclick="toggleLyricsPanel()"></i>
         </div>
     </div>
 
-    <audio id="audioPlayer"></audio>
+    <!-- MOBILE NAV -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="showHome()"><i class="fas fa-home"></i><span>Home</span></div>
+        <div class="nav-item" onclick="focusSearch()"><i class="fas fa-search"></i><span>Search</span></div>
+        <div class="nav-item" onclick="showFavourites()"><i class="fas fa-heart"></i><span>Lib</span></div>
+        <div class="nav-item" onclick="showQueue()"><i class="fas fa-list-ul"></i><span>Queue</span></div>
+    </div>
+
+    <audio id="audioPlayer" playsinline></audio>
 
     <script>
         const audioPlayer = document.getElementById('audioPlayer');
@@ -94,99 +110,189 @@
         
         let currentLyrics = []; 
         let currentSong = null; 
-        let isLyricsOpen = true; // Default state
+        let isLyricsOpen = window.innerWidth > 768;
+        let playbackQueue = []; // THE QUEUE
 
-        window.onload = loadCharts;
+        window.onload = () => {
+            initMobileView();
+            showHome();
+            updateQueueUI();
+        };
 
-        // --- LOADING STATES ---
-        // Listen for audio events to toggle the loading spinner
-        audioPlayer.addEventListener('waiting', () => {
-            loadingOverlay.style.display = 'flex';
-            updatePlayButton(false); // Show play icon while buffering
-        });
-        audioPlayer.addEventListener('playing', () => {
-            loadingOverlay.style.display = 'none';
-            updatePlayButton(true);
-        });
-        audioPlayer.addEventListener('canplay', () => {
-            loadingOverlay.style.display = 'none';
-            updatePlayButton(true);
-        });
+        // --- NAVIGATION ---
+        function updateNavHighlight(section) {
+            document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
+            const desktopNav = document.getElementById(`nav-${section}`);
+            if(desktopNav) desktopNav.classList.add('active');
 
-        // --- UI TOGGLES ---
+            document.querySelectorAll('.bottom-nav .nav-item').forEach(item => item.classList.remove('active'));
+            const icons = {'home':0, 'search':1, 'library':2, 'queue':3};
+            document.querySelectorAll('.bottom-nav .nav-item')[icons[section]].classList.add('active');
+        }
 
-        function toggleLyricsPanel() {
-            isLyricsOpen = !isLyricsOpen;
-            const split = document.getElementById('contentSplit');
-            const lyricsSection = document.getElementById('lyricsSection');
-            const toggleBtn = document.getElementById('lyricsToggleBtn');
+        function showHome() {
+            updateNavHighlight('home');
+            document.getElementById('sectionTitle').innerText = "Home";
+            // Toggle sections
+            document.getElementById('recentsContainer').style.display = 'block';
+            document.getElementById('recommendationsContainer').style.display = 'block';
+            document.getElementById('chartTitle').style.display = 'block';
+            document.getElementById('chartTitle').innerText = "Top Charts";
+            
+            loadRecents();
+            loadRecommendations(); // NEW: Load Made For You
+            loadCharts();
+        }
 
-            if (isLyricsOpen) {
-                lyricsSection.style.display = 'flex';
-                lyricsSection.classList.remove('hidden');
-                split.classList.remove('expanded');
-                toggleBtn.classList.add('active');
-            } else {
-                lyricsSection.style.display = 'none';
-                lyricsSection.classList.add('hidden');
-                split.classList.add('expanded');
-                toggleBtn.classList.remove('active');
+        function showQueue() {
+            updateNavHighlight('queue');
+            document.getElementById('sectionTitle').innerText = "Play Queue";
+            document.getElementById('recentsContainer').style.display = 'none';
+            document.getElementById('recommendationsContainer').style.display = 'none';
+            document.getElementById('chartTitle').style.display = 'none';
+            renderSongList(playbackQueue, true); // True = isQueueView
+        }
+        
+        function focusSearch() { updateNavHighlight('search'); document.getElementById('searchInput').focus(); }
+        
+        function showFavourites() {
+            updateNavHighlight('library');
+            document.getElementById('sectionTitle').innerText = "Your Favourites";
+            document.getElementById('recentsContainer').style.display = 'none';
+            document.getElementById('recommendationsContainer').style.display = 'none';
+            document.getElementById('chartTitle').style.display = 'none';
+            renderSongList(getLikedSongs());
+        }
+
+        // --- QUEUE LOGIC ---
+        function addToQueue(song, event) {
+            if(event) event.stopPropagation();
+            // Check if already in queue to prevent duplicates (optional)
+            // if(playbackQueue.some(s => s.id === song.id)) return;
+            
+            playbackQueue.push(song);
+            updateQueueUI();
+            
+            // Visual feedback
+            const btn = event ? event.target : null;
+            if(btn) {
+                btn.className = "fas fa-check like-btn";
+                setTimeout(() => btn.className = "fas fa-list-ul like-btn", 1000);
             }
         }
 
-        // --- NAVIGATION ---
-        function setActiveNav(id) {
-            document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+        function updateQueueUI() {
+            const count = document.getElementById('queueCount');
+            if(playbackQueue.length > 0) {
+                count.style.display = 'inline-block';
+                count.innerText = playbackQueue.length;
+            } else {
+                count.style.display = 'none';
+            }
         }
-        function focusSearch() { setActiveNav('nav-search'); document.getElementById('searchInput').focus(); }
-        function showHome() { setActiveNav('nav-home'); document.getElementById('sectionTitle').innerText = "Top Charts"; loadCharts(); }
-        function showFavourites() { setActiveNav('nav-library'); document.getElementById('sectionTitle').innerText = "Your Favourites"; renderSongList(getLikedSongs()); }
 
-        async function loadCharts() {
-            const list = document.getElementById('resultsList');
-            list.innerHTML = '<div class="loading-text">Loading Top 10...</div>';
+        function playNextInQueue(isUserAction = false) {
+            if (playbackQueue.length > 0) {
+                const nextSong = playbackQueue.shift(); // Remove first item
+                updateQueueUI();
+                loadSong(nextSong);
+                // If we are looking at the queue, refresh the list
+                if(document.getElementById('nav-queue').classList.contains('active')) {
+                    renderSongList(playbackQueue, true);
+                }
+            } else {
+                if(isUserAction) {
+                    // User clicked next but queue empty -> Do nothing or restart
+                    alert("End of Queue");
+                } else {
+                    // Auto-play: Fetch a recommendation based on current song
+                    playAutoRecommendation();
+                }
+            }
+        }
+
+        async function playAutoRecommendation() {
+            if(!currentSong || !currentSong.artist_id) return;
+            console.log("Queue empty. Fetching auto-recommendation...");
             try {
-                const res = await fetch('/chart');
+                const res = await fetch(`/recommend?artist_id=${currentSong.artist_id}`);
                 const data = await res.json();
-                renderSongList(data);
-            } catch (e) { list.innerHTML = '<p>Error loading charts</p>'; }
+                if(data && data.length > 0) {
+                    // Pick a random one from the top 3
+                    const next = data[Math.floor(Math.random() * data.length)];
+                    // Add others to queue? No, just play one to keep infinite radio logic simple
+                    loadSong(next);
+                }
+            } catch(e) { console.error("Autoplay failed", e); }
         }
 
-        async function performSearch() {
-            setActiveNav('nav-search');
-            const query = document.getElementById('searchInput').value;
-            if(!query) return;
-            document.getElementById('sectionTitle').innerText = "Search Results";
-            const list = document.getElementById('resultsList');
-            list.innerHTML = '<div class="loading-text">Searching...</div>';
+        // --- RECOMMENDATIONS LOGIC ---
+        async function loadRecommendations() {
+            const recents = getRecents();
+            const container = document.getElementById('recommendationsContainer');
+            const list = document.getElementById('recommendationsList');
+            
+            if(recents.length === 0) { container.style.display = 'none'; return; }
+            
+            // Use the most recent song's artist
+            const lastSong = recents[0];
+            if(!lastSong.artist_id) { container.style.display = 'none'; return; }
+            
             try {
-                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                renderSongList(data);
-            } catch (error) { list.innerHTML = '<p>Error fetching data.</p>'; }
+                const res = await fetch(`/recommend?artist_id=${lastSong.artist_id}`);
+                const data = await res.json();
+                
+                if(data.length === 0) { container.style.display = 'none'; return; }
+                
+                container.style.display = 'block';
+                list.innerHTML = '';
+                data.forEach(song => {
+                    const div = document.createElement('div');
+                    div.className = 'recent-card';
+                    div.innerHTML = `<img src="${song.cover}"><div class="recent-title">${song.title}</div>`;
+                    div.onclick = () => loadSong(song);
+                    list.appendChild(div);
+                });
+            } catch(e) { container.style.display = 'none'; }
         }
 
-        function renderSongList(songs) {
+        // --- RENDER SONGS ---
+        function renderSongList(songs, isQueueView = false) {
             const list = document.getElementById('resultsList');
             list.innerHTML = '';
-            if (songs.length === 0) { list.innerHTML = '<p>No songs found.</p>'; return; }
+            
+            if (isQueueView && songs.length === 0) {
+                list.innerHTML = '<p style="text-align:center; margin-top:20px;">Queue is empty.<br>Go add some songs!</p>';
+                return;
+            }
+            if (!isQueueView && songs.length === 0) { list.innerHTML = '<p>No songs found.</p>'; return; }
+            
             const likedSongs = getLikedSongs();
 
-            songs.forEach(song => {
+            songs.forEach((song, index) => {
                 const isLiked = likedSongs.some(s => s.id === song.id);
                 const heartClass = isLiked ? "fas fa-heart liked" : "far fa-heart";
+                
                 const item = document.createElement('div');
                 item.className = 'song-item';
+                
+                // Queue remove button vs Add to queue button
+                let queueAction = '';
+                if (isQueueView) {
+                    queueAction = `<i class="fas fa-trash like-btn" onclick="removeFromQueue(${index}, event)"></i>`;
+                } else {
+                    queueAction = `<i class="fas fa-list-ul like-btn" title="Add to Queue" onclick="addToQueue(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(song))}')), event)"></i>`;
+                }
+
                 item.innerHTML = `
                     <img src="${song.cover}" class="song-list-cover">
                     <div class="song-info">
                         <div class="song-title">${song.title}</div>
-                        <div class="song-artist">${song.artist} • ${song.album}</div>
+                        <div class="song-artist">${song.artist}</div>
                     </div>
                     <div class="actions">
+                        ${queueAction}
                         <i class="${heartClass} like-btn" onclick="toggleLike(event, '${encodeURIComponent(JSON.stringify(song))}')"></i>
-                        <div class="song-duration">${formatTime(song.duration)}</div>
                     </div>
                 `;
                 item.onclick = (e) => { if (!e.target.classList.contains('like-btn')) loadSong(song); };
@@ -194,20 +300,54 @@
             });
         }
 
-        // --- PLAY LOGIC ---
+        function removeFromQueue(index, event) {
+            if(event) event.stopPropagation();
+            playbackQueue.splice(index, 1);
+            updateQueueUI();
+            renderSongList(playbackQueue, true);
+        }
+
+        // --- CORE PLAYER ---
+        // (loadCharts, performSearch, loadSong, getRecents, addToRecents, loadRecents are same as before)
+        // Except loadSong now calls playNextInQueue when ended
+        
+        async function loadCharts() {
+            const list = document.getElementById('resultsList');
+            list.innerHTML = '<div class="loading-text">Loading...</div>';
+            try { const res = await fetch('/chart'); renderSongList(await res.json()); } catch (e) {}
+        }
+        async function performSearch() {
+            updateNavHighlight('search');
+            const q = document.getElementById('searchInput').value; if(!q) return;
+            document.getElementById('recentsContainer').style.display='none';
+            document.getElementById('recommendationsContainer').style.display='none';
+            document.getElementById('chartTitle').style.display='none';
+            document.getElementById('sectionTitle').innerText="Search Results";
+            const list = document.getElementById('resultsList'); list.innerHTML='<div class="loading-text">Searching...</div>';
+            try { const res = await fetch(`/search?q=${encodeURIComponent(q)}`); renderSongList(await res.json()); } catch(e){}
+        }
+        
+        // ... (Insert getLikedSongs, toggleLike, toggleLikeCurrent, updatePlayerLikeBtn here from previous code) ...
+        // ... (Insert getRecents, addToRecents, loadRecents here from previous code) ...
+
+        // IMPORTANT: Modified Audio End Event
+        audioPlayer.onended = () => {
+            playNextInQueue();
+        };
+
+        // ... (Insert loadSong, parseLyrics, renderLyrics, etc from previous code) ...
+        // Re-pasting loadSong for clarity on Recents
         async function loadSong(song) {
             currentSong = song;
-            // Update Text immediately
-            document.getElementById('trackName').innerText = song.title;
-            document.getElementById('artistName').innerText = song.artist;
-            document.getElementById('artistName').innerText = "Downloading..."; // Temp status
-            document.getElementById('albumArt').src = song.cover_xl;
+            addToRecents(song);
             
-            // Show Overlay
+            document.getElementById('trackName').innerText = song.title;
+            document.getElementById('artistName').innerText = "Downloading...";
+            document.getElementById('albumArt').src = song.cover_xl;
             loadingOverlay.style.display = 'flex';
             updatePlayerLikeBtn();
 
-            lyricsContainer.innerHTML = '<div class="loading-lyrics">Searching Sources...</div>';
+            lyricsContainer.innerHTML = '<div class="loading-lyrics">Searching...</div>';
             currentLyrics = [];
             updatePlayButton(false);
 
@@ -216,112 +356,94 @@
                     title: song.title, artist: song.artist, album: song.album,
                     artwork: [{ src: song.cover_xl, sizes: '512x512', type: 'image/jpeg' }]
                 });
+                // Add Next Track handler for Media Session
+                navigator.mediaSession.setActionHandler('nexttrack', () => playNextInQueue(true));
             }
 
             try {
-                // Fetch Audio
                 const audioRes = await fetch(`/play?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`);
                 const audioData = await audioRes.json();
-                
-                if(audioData.error) { 
-                    alert("Song not found"); 
-                    document.getElementById('artistName').innerText = "Error";
-                    loadingOverlay.style.display = 'none';
-                    return; 
-                }
+                if(audioData.error) throw new Error("Error");
 
-                document.getElementById('artistName').innerText = song.artist; // Restore name
+                document.getElementById('artistName').innerText = song.artist;
                 audioPlayer.src = `/stream_proxy?url=${encodeURIComponent(audioData.url)}`;
-                audioPlayer.play();
-                // Overlay will be hidden by 'playing' event listener above
+                audioPlayer.play().catch(e => console.log("Autoplay blocked"));
 
-                // Fetch Lyrics
                 const lyricsRes = await fetch(`/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`);
-                const lyricsData = await lyricsRes.json();
-                if (lyricsData.lyrics) {
-                    parseLyrics(lyricsData.lyrics);
-                    renderLyrics();
-                } else {
-                    lyricsContainer.innerHTML = '<div class="lyrics-placeholder">No synced lyrics found.<br>Tried multiple sources.</div>';
-                }
-            } catch (error) {
-                console.error(error);
+                const lyData = await lyricsRes.json();
+                if (lyData.lyrics) { parseLyrics(lyData.lyrics); renderLyrics(); }
+                else lyricsContainer.innerHTML = '<div class="lyrics-placeholder">No synced lyrics.</div>';
+            } catch (e) {
                 document.getElementById('artistName').innerText = song.artist;
                 loadingOverlay.style.display = 'none';
+                // If song fails, try next in queue
+                setTimeout(() => playNextInQueue(), 2000); 
             }
         }
+        
+        // Mobile Logic
+        function initMobileView() { if (window.innerWidth <= 768) toggleLyricsPanel(false); }
+        function toggleLyricsPanel(force) {
+             isLyricsOpen = force!==undefined ? force : !isLyricsOpen;
+             const s = document.getElementById('lyricsSection');
+             const split = document.getElementById('contentSplit');
+             const btn = document.getElementById('lyricsToggleBtn');
+             if(isLyricsOpen) {
+                 s.style.display='flex'; setTimeout(()=>s.classList.remove('hidden'),10);
+                 if(window.innerWidth>768) split.classList.remove('expanded');
+                 else s.classList.add('mobile-overlay');
+                 btn.classList.add('active');
+             } else {
+                 s.classList.add('hidden'); s.classList.remove('mobile-overlay');
+                 setTimeout(()=>s.style.display='none',300);
+                 split.classList.add('expanded');
+                 btn.classList.remove('active');
+             }
+        }
 
-        // --- LIKE LOGIC (Keep previous logic) ---
+        // Standard Helpers
         function getLikedSongs() { return JSON.parse(localStorage.getItem('likedSongs') || '[]'); }
         function toggleLike(event, songStr) {
-            event.stopPropagation();
-            const song = JSON.parse(decodeURIComponent(songStr));
-            const likedSongs = getLikedSongs();
-            const index = likedSongs.findIndex(s => s.id === song.id);
-            if (index === -1) { likedSongs.push(song); event.target.className = "fas fa-heart liked like-btn"; } 
-            else { likedSongs.splice(index, 1); event.target.className = "far fa-heart like-btn"; if(document.getElementById('nav-library').classList.contains('active')) renderSongList(likedSongs); }
-            localStorage.setItem('likedSongs', JSON.stringify(likedSongs));
-            updatePlayerLikeBtn();
+            event.stopPropagation(); const song=JSON.parse(decodeURIComponent(songStr)); const list=getLikedSongs();
+            const idx=list.findIndex(s=>s.id===song.id);
+            if(idx===-1) { list.push(song); event.target.className="fas fa-heart liked like-btn"; }
+            else { list.splice(idx,1); event.target.className="far fa-heart like-btn"; if(document.getElementById('nav-library').classList.contains('active')) renderSongList(list); }
+            localStorage.setItem('likedSongs',JSON.stringify(list)); updatePlayerLikeBtn();
         }
         function toggleLikeCurrent() {
-            if (!currentSong) return;
-            const likedSongs = getLikedSongs();
-            const index = likedSongs.findIndex(s => s.id === currentSong.id);
-            if (index === -1) likedSongs.push(currentSong); else likedSongs.splice(index, 1);
-            localStorage.setItem('likedSongs', JSON.stringify(likedSongs));
-            updatePlayerLikeBtn();
-            if (document.getElementById('nav-library').classList.contains('active')) renderSongList(likedSongs);
+            if(!currentSong) return; const list=getLikedSongs(); const idx=list.findIndex(s=>s.id===currentSong.id);
+            if(idx===-1) list.push(currentSong); else list.splice(idx,1);
+            localStorage.setItem('likedSongs',JSON.stringify(list)); updatePlayerLikeBtn();
+            if(document.getElementById('nav-library').classList.contains('active')) renderSongList(list);
         }
         function updatePlayerLikeBtn() {
-            if(!currentSong) return;
-            const isLiked = getLikedSongs().some(s => s.id === currentSong.id);
-            document.getElementById('playerLikeBtn').className = isLiked ? "fas fa-heart like-btn-player liked" : "far fa-heart like-btn-player";
+            if(!currentSong) return; const is=getLikedSongs().some(s=>s.id===currentSong.id);
+            document.getElementById('playerLikeBtn').className = is?"fas fa-heart like-btn-player liked":"far fa-heart like-btn-player";
         }
-
-        // --- LYRICS & AUDIO ---
-        function parseLyrics(lrcString) {
-            const lines = lrcString.split('\n');
-            const regex = /^\[(\d{2}):(\d{2}\.\d{2})\](.*)/;
-            currentLyrics = [];
-            lines.forEach(line => {
-                const match = line.match(regex);
-                if (match && match[3].trim()) currentLyrics.push({ time: parseInt(match[1])*60 + parseFloat(match[2]), text: match[3].trim() });
+        function getRecents(){ return JSON.parse(localStorage.getItem('recentSongs')||'[]'); }
+        function addToRecents(s){ let r=getRecents(); r=r.filter(x=>x.id!==s.id); r.unshift(s); if(r.length>10)r.pop(); localStorage.setItem('recentSongs',JSON.stringify(r)); }
+        function loadRecents(){
+            const r=getRecents(); const c=document.getElementById('recentsList'); const w=document.getElementById('recentsContainer');
+            if(r.length===0){w.style.display='none';return;} w.style.display='block'; c.innerHTML='';
+            r.forEach(s=>{
+                const d=document.createElement('div'); d.className='recent-card';
+                d.innerHTML=`<img src="${s.cover}"><div class="recent-title">${s.title}</div>`;
+                d.onclick=()=>loadSong(s); c.appendChild(d);
             });
         }
-        function renderLyrics() {
-            lyricsContainer.innerHTML = '';
-            currentLyrics.forEach((line, index) => {
-                const p = document.createElement('p');
-                p.innerText = line.text; p.id = `line-${index}`; p.className = 'lyric-line';
-                p.onclick = () => { audioPlayer.currentTime = line.time; };
-                lyricsContainer.appendChild(p);
-            });
-            const spacer = document.createElement('div'); spacer.style.height = "50%"; lyricsContainer.appendChild(spacer);
-        }
-        function syncLyrics(currentTime) {
-            if (!currentLyrics.length) return;
-            let activeIndex = -1;
-            for (let i = 0; i < currentLyrics.length; i++) { if (currentTime >= currentLyrics[i].time) activeIndex = i; else break; }
-            if (activeIndex !== -1) {
-                document.querySelectorAll('.lyric-line').forEach(el => el.classList.remove('active'));
-                const activeEl = document.getElementById(`line-${activeIndex}`);
-                if (activeEl) { activeEl.classList.add('active'); activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-            }
-        }
+        function parseLyrics(s){ const l=s.split('\n'); const r=/^\[(\d{2}):(\d{2}\.\d{2})\](.*)/; currentLyrics=[]; l.forEach(x=>{const m=x.match(r); if(m&&m[3].trim()) currentLyrics.push({time:parseInt(m[1])*60+parseFloat(m[2]),text:m[3].trim()});}); }
+        function renderLyrics(){ const c=lyricsContainer; c.innerHTML=''; currentLyrics.forEach((l,i)=>{const p=document.createElement('p'); p.innerText=l.text; p.id=`line-${i}`; p.className='lyric-line'; p.onclick=()=>{audioPlayer.currentTime=l.time}; c.appendChild(p);}); const s=document.createElement('div'); s.style.height="50%"; c.appendChild(s); }
+        function syncLyrics(t){ if(!currentLyrics.length)return; let idx=-1; for(let i=0;i<currentLyrics.length;i++){if(t>=currentLyrics[i].time)idx=i;else break;} if(idx!==-1){document.querySelectorAll('.lyric-line').forEach(e=>e.classList.remove('active')); const el=document.getElementById(`line-${idx}`); if(el){el.classList.add('active'); el.scrollIntoView({behavior:'smooth',block:'center'});}} }
+        
+        audioPlayer.addEventListener('waiting', () => { loadingOverlay.style.display = 'flex'; });
+        audioPlayer.addEventListener('playing', () => { loadingOverlay.style.display = 'none'; updatePlayButton(true); });
+        audioPlayer.addEventListener('pause', () => { updatePlayButton(false); });
         function togglePlay() { if (audioPlayer.paused) audioPlayer.play(); else audioPlayer.pause(); }
         function seek(s) { audioPlayer.currentTime += s; }
         function updatePlayButton(p) { playPauseBtn.innerHTML = p ? '<i class="fas fa-pause-circle"></i>' : '<i class="fas fa-play-circle"></i>'; }
-        audioPlayer.ontimeupdate = () => {
-            if (audioPlayer.duration) {
-                progressBar.value = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-                document.getElementById('currentTime').innerText = formatTime(audioPlayer.currentTime);
-                document.getElementById('duration').innerText = formatTime(audioPlayer.duration);
-                syncLyrics(audioPlayer.currentTime);
-            }
-        };
+        audioPlayer.ontimeupdate = () => { if (audioPlayer.duration) { progressBar.value = (audioPlayer.currentTime / audioPlayer.duration) * 100; document.getElementById('currentTime').innerText = formatTime(audioPlayer.currentTime); document.getElementById('duration').innerText = formatTime(audioPlayer.duration); syncLyrics(audioPlayer.currentTime); } };
         progressBar.oninput = () => { audioPlayer.currentTime = (progressBar.value / 100) * audioPlayer.duration; }
         function formatTime(s) { const m=Math.floor(s/60), sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; }
-        function setVolume(v) { audioPlayer.volume = v; }
         document.getElementById('searchInput').addEventListener("keypress", (e) => { if (e.key === "Enter") performSearch(); });
     </script>
 </body>
