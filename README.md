@@ -1,5 +1,8 @@
 # 🎵 PyMusic
 
+
+
+
 A lightweight, web-based music streaming application built with Python (Flask). It mimics the Spotify UI to provide a seamless listening experience without ads.
 
 ## ✨ Screenshots
@@ -18,15 +21,12 @@ A lightweight, web-based music streaming application built with Python (Flask). 
 *   **Smart Search:** aggressive fallback search to find lyrics even if titles don't match perfectly.
 *   **Favourites System:** Saves your liked songs to your browser's local storage.
 *   **System Integration:** Supports Windows/Mac Media keys (Play/Pause/Next) and displays info in the control center.
-*   **User Authentication:** A simple user authentication system with roles (admin and user).
-*   **Admin Panel:** A simple admin panel to manage users.
 
 ## 🛠️ Tech Stack
 
 *   **Backend:** Python, Flask
 *   **Frontend:** HTML5, CSS3, Vanilla JavaScript
-*   **Database:** SQLite
-*   **APIs/Libraries:**
+*   **APIs/Libraries:** 
     *   `yt-dlp` (Audio extraction)
     *   Deezer API (Metadata)
     *   LRCLIB (Lyrics)
@@ -58,14 +58,13 @@ A lightweight, web-based music streaming application built with Python (Flask). 
 4.  Open your browser and go to:
     `localhost:499`
 
-**Note:** On the first run, an admin account is created with the username `admin` and a default password. You will be prompted to change this password upon your first login.
-
 ## ⚖️ Disclaimer
 
-This project is for **educational purposes only**. It demonstrates how to handle API requests, audio streaming, and frontend-backend integration in Python.
+This project is for **educational purposes only**. It demonstrates how to handle API requests, audio streaming, and frontend-backend integration in Python. 
 *   Downloading or streaming copyrighted content without a license may violate laws in your country.
 *   Scraping YouTube violates their Terms of Service.
 *   Please support artists by using official streaming services.
+  haha
 
 ## 📝 License
 
