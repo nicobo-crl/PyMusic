@@ -6,7 +6,6 @@ import sqlite3
 import random
 import json
 import os
-import threading
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -187,16 +186,18 @@ def evict_cache():
 
         conn.close()
 
-def cache_song(artist, title, song_id):
-    """Downloads and caches a song in a background thread."""
+def get_youtube_stream_url(artist, title, song_id):
     song_id = sanitize_song_id(song_id)
     safe_filename = f"{song_id}.m4a"
     cached_path = os.path.join(CACHE_DIR, safe_filename)
     part_path = cached_path + ".part"
 
-    # Avoid re-downloading if it's already cached or being downloaded
-    if os.path.exists(cached_path) or os.path.exists(part_path):
-        return
+    if os.path.exists(cached_path):
+        return {'url': f"/stream_proxy?song_id={song_id}"}
+
+    # If another process is downloading, wait for it to finish
+    if os.path.exists(part_path):
+        return {'status': 'downloading', 'message': 'Song is currently being downloaded, please try again shortly.'}
 
     query = f"{artist} - {title} audio"
     ydl_opts = {
@@ -208,39 +209,23 @@ def cache_song(artist, title, song_id):
         'retries': 3,
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
             ydl.extract_info(f"ytsearch1:{query}", download=True)
-
-        if os.path.exists(part_path):
-            os.rename(part_path, cached_path)
-            conn = get_db_connection()
-            conn.execute("INSERT INTO cache (song_id, filepath) VALUES (?, ?)", (song_id, cached_path))
-            conn.commit()
-            conn.close()
-            evict_cache()
-    except Exception as e:
-        app.logger.error(f"Error caching song {song_id}: {e}")
-        if os.path.exists(part_path):
-            os.remove(part_path)
-
-def get_youtube_stream_url(artist, title):
-    """Gets a direct stream URL from YouTube without downloading."""
-    query = f"{artist} - {title} audio"
-    ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/best',
-        'quiet': True,
-        'noplaylist': True,
-        'geo_bypass': True,
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
-            video = info['entries'][0] if 'entries' in info else info
-            return video['url']
-    except Exception as e:
-        app.logger.error(f"Error getting stream URL for {query}: {e}")
-        return None
+            if os.path.exists(part_path):
+                os.rename(part_path, cached_path)
+                conn = get_db_connection()
+                conn.execute("INSERT INTO cache (song_id, filepath) VALUES (?, ?)", (song_id, cached_path))
+                conn.commit()
+                conn.close()
+                evict_cache()  # Check and evict if necessary
+                return {'url': f"/stream_proxy?song_id={song_id}"}
+        except Exception as e:
+            app.logger.error(f"Error downloading {query}: {e}")
+            if os.path.exists(part_path):
+                os.remove(part_path)
+            return None
+    return None
 
 def fetch_lyrics(artist, title):
     # ... (Keep existing code) ...
@@ -439,29 +424,14 @@ def recommend():
 @app.route('/play')
 def play():
     if not session.get('user_id'): return jsonify({'error': 'Unauthorized'}), 401
-
-    song_id = sanitize_song_id(request.args.get('song_id'))
+    song_id = request.args.get('song_id')
     artist = request.args.get('artist')
     title = request.args.get('title')
 
-    if not all([song_id, artist, title]):
+    if not song_id or not artist or not title:
         return jsonify({'error': 'Missing required parameters'}), 400
 
-    # Check if the song is already cached
-    cached_path = os.path.join(CACHE_DIR, f"{song_id}.m4a")
-    if os.path.exists(cached_path):
-        return jsonify({'url': f"/stream_proxy?song_id={song_id}&local=true"})
-
-    # If not cached, get a direct stream URL for immediate playback
-    stream_url = get_youtube_stream_url(artist, title)
-    if not stream_url:
-        return jsonify({'error': 'Could not find a playable stream.'}), 404
-
-    # Start caching the song in the background
-    threading.Thread(target=cache_song, args=(artist, title, song_id)).start()
-
-    # Return the direct stream URL to the client
-    return jsonify({'url': f"/stream_proxy?url={stream_url}"})
+    return jsonify(get_youtube_stream_url(artist, title, song_id))
 
 @app.route('/lyrics')
 def lyrics():
@@ -472,52 +442,42 @@ def lyrics():
 def stream_proxy():
     if not session.get('user_id'): return "Unauthorized", 401
 
-    # Case 1: Stream a local cached file
-    if request.args.get('local'):
-        song_id = sanitize_song_id(request.args.get('song_id'))
-        if not song_id: return "Missing song_id for local stream", 400
+    song_id = request.args.get('song_id')
+    if not song_id: return "Missing song_id", 400
 
-        file_path = os.path.join(CACHE_DIR, f"{song_id}.m4a")
-        if not os.path.exists(file_path): return "File not found", 404
+    song_id = sanitize_song_id(song_id)
+    safe_filename = f"{song_id}.m4a"
+    file_path = os.path.join(CACHE_DIR, safe_filename)
 
-        range_header = request.headers.get('Range', None)
-        if not range_header:
-            return send_file(file_path, mimetype='audio/mp4')
+    if not os.path.exists(file_path):
+        return "File not found", 404
 
-        size = os.path.getsize(file_path)
-        byte1, byte2 = 0, None
-        m = re.search(r'(\d+)-(\d*)', range_header)
-        g = m.groups()
-        if g[0]: byte1 = int(g[0])
-        if g[1]: byte2 = int(g[1])
-        length = size - byte1
-        if byte2 is not None: length = byte2 - byte1 + 1
+    range_header = request.headers.get('Range', None)
+    if not range_header:
+        return send_file(file_path, mimetype='audio/mp4')
 
-        data = None
-        with open(file_path, 'rb') as f:
-            f.seek(byte1)
-            data = f.read(length)
+    size = os.path.getsize(file_path)
+    byte1, byte2 = 0, None
 
-        rv = Response(data, 206, mimetype="audio/mp4", content_type="audio/mp4", direct_passthrough=True)
-        rv.headers.add('Content-Range', f'bytes {byte1}-{byte1 + length - 1}/{size}')
-        rv.headers.add('Accept-Ranges', 'bytes')
-        return rv
+    m = re.search(r'(\d+)-(\d*)', range_header)
+    g = m.groups()
 
-    # Case 2: Proxy a remote URL from YouTube
-    else:
-        url = request.args.get('url')
-        if not url: return "No URL provided for proxy", 400
+    if g[0]: byte1 = int(g[0])
+    if g[1]: byte2 = int(g[1])
 
-        headers = {'Range': request.headers.get('Range')} if 'Range' in request.headers else {}
-        try:
-            req = requests.get(url, stream=True, headers=headers)
-            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-            res_headers = [(n, v) for n, v in req.headers.items() if n.lower() not in excluded_headers]
+    length = size - byte1
+    if byte2 is not None:
+        length = byte2 - byte1 + 1
 
-            return Response(stream_with_context(req.iter_content(chunk_size=8192)), req.status_code, res_headers)
-        except Exception as e:
-            app.logger.error(f"Error proxying stream: {e}")
-            return "Error proxying stream", 500
+    data = None
+    with open(file_path, 'rb') as f:
+        f.seek(byte1)
+        data = f.read(length)
+
+    rv = Response(data, 206, mimetype="audio/mp4", content_type="audio/mp4", direct_passthrough=True)
+    rv.headers.add('Content-Range', f'bytes {byte1}-{byte1 + length - 1}/{size}')
+    rv.headers.add('Accept-Ranges', 'bytes')
+    return rv
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port=5000)

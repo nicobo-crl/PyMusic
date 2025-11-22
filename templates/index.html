@@ -401,8 +401,11 @@
             try {
                 const audioRes = await fetch(`/play?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&song_id=${song.id}`);
                 const audioData = await audioRes.json();
-                if (audioData.error) {
-                    throw new Error(audioData.error);
+                if(audioData.error) throw new Error("Song not found");
+                if(audioData.status === 'downloading') {
+                    document.getElementById('artistName').innerText = "Downloading...";
+                    setTimeout(() => loadSong(song), 5000); // Retry after 5s
+                    return;
                 }
                 document.getElementById('artistName').innerText = song.artist;
                 audioPlayer.src = audioData.url;
