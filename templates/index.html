@@ -12,7 +12,6 @@
 <body>
 
     <div class="container">
-        <!-- Sidebar -->
         <div class="sidebar">
             <div class="logo"><i class="fas fa-music"></i> PyMusic</div>
             <ul>
@@ -20,35 +19,39 @@
                 <li id="nav-search" onclick="focusSearch()"><i class="fas fa-search"></i> Search</li>
                 <li id="nav-library" onclick="showFavourites()"><i class="fas fa-heart"></i> Favourites</li>
                 <li id="nav-queue" onclick="showQueue()"><i class="fas fa-list-ul"></i> Queue <span id="queueCount" style="display:none; background:var(--primary); color:black; border-radius:50%; padding:2px 6px; font-size:10px; margin-left:5px;">0</span></li>
+                
+                <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 20px;">
+                    <li style="cursor: default; color: #fff; font-size: 12px; margin-bottom: 10px;">Logged in as: <strong>{{ username }}</strong></li>
+                    {% if role == 'admin' %}
+                    <li onclick="window.location.href='/admin'"><i class="fas fa-users-cog"></i> Users</li>
+                    {% endif %}
+                    <li onclick="window.location.href='/logout'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+                </div>
             </ul>
         </div>
 
         <div class="main-content">
             <div class="search-bar-container">
-                <input type="text" id="searchInput" placeholder="Search songs...">
+                <input type="text" id="searchInput" placeholder="Search songs, artists...">
                 <button onclick="performSearch()"><i class="fas fa-search"></i></button>
             </div>
 
             <div class="content-split" id="contentSplit">
                 <div class="results-section" id="resultsSection">
                     <h2 id="sectionTitle">Home</h2>
-                    
                     <div id="recentsContainer" class="recents-wrapper" style="display:none;">
                         <h3>Recently Played</h3>
                         <div id="recentsList" class="horizontal-scroll"></div>
                     </div>
-
-                    <div id="recommendationsContainer" style="display:none; margin-bottom: 20px;">
+                    <div id="recommendationsContainer" class="recents-wrapper" style="display:none;">
                         <h3>Made For You</h3>
                         <div id="recommendationsList" class="horizontal-scroll"></div>
                     </div>
-
                     <h3 id="chartTitle">Top Charts</h3>
                     <div id="resultsList" class="song-list">
                         <div class="loading-text">Loading...</div>
                     </div>
                 </div>
-                
                 <div class="lyrics-section" id="lyricsSection">
                     <h2>Lyrics</h2>
                     <div id="lyricsContainer" class="lyrics-container">
@@ -72,7 +75,6 @@
             </div>
             <i id="playerLikeBtn" class="far fa-heart like-btn-player" onclick="toggleLikeCurrent()"></i>
         </div>
-        
         <div class="player-controls">
             <div class="control-buttons">
                 <button onclick="seek(-10)" class="step"><i class="fas fa-backward"></i></button>
@@ -85,13 +87,17 @@
                 <span id="duration">0:00</span>
             </div>
         </div>
-
         <div class="volume-controls">
             <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon active" onclick="toggleLyricsPanel()"></i>
         </div>
     </div>
 
-    <!-- MOBILE NAV -->
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="ctxAddToQueue()"><i class="fas fa-list-ul"></i> Add to Queue</div>
+        <div class="context-menu-item" onclick="ctxToggleLike()"><i class="fas fa-heart"></i> Toggle Like</div>
+    </div>
+
     <div class="bottom-nav">
         <div class="nav-item active" onclick="showHome()"><i class="fas fa-home"></i><span>Home</span></div>
         <div class="nav-item" onclick="focusSearch()"><i class="fas fa-search"></i><span>Search</span></div>
@@ -110,21 +116,92 @@
         
         let currentLyrics = []; 
         let currentSong = null; 
-        let isLyricsOpen = window.innerWidth > 768;
+        let isLyricsOpen = window.innerWidth > 768; 
         let playbackQueue = [];
+        let likedSongsCache = []; // Global cache for likes
+        let ctxSelectedSong = null; // For right-click
 
-        window.onload = () => {
-            initMobileView();
-            showHome();
-            updateQueueUI();
+        window.onload = async () => {
+            try {
+                initMobileView();
+                await fetchLikes(); // Fetch from DB
+                showHome();
+                updateQueueUI();
+            } catch (e) { console.error(e); }
         };
+
+        // --- DB LIKES LOGIC ---
+        async function fetchLikes() {
+            try {
+                const res = await fetch('/api/likes');
+                likedSongsCache = await res.json();
+            } catch (e) { console.error("Failed to fetch likes", e); }
+        }
+
+        function getLikedSongs() { return likedSongsCache; }
+
+        async function toggleLike(event, songStr) {
+            if(event) event.stopPropagation(); 
+            const song = typeof songStr === 'string' ? JSON.parse(decodeURIComponent(songStr)) : songStr;
+            
+            // Optimistic Update
+            const idx = likedSongsCache.findIndex(s => s.id === song.id);
+            const isLiked = idx !== -1;
+            
+            if (isLiked) likedSongsCache.splice(idx, 1);
+            else likedSongsCache.unshift(song);
+            
+            // Update UI immediately
+            if(event && event.target) {
+                event.target.className = isLiked ? "far fa-heart like-btn" : "fas fa-heart liked like-btn";
+            }
+            updatePlayerLikeBtn();
+            if(document.getElementById('nav-library').classList.contains('active')) renderSongList(likedSongsCache);
+
+            // Send to API
+            await fetch('/api/toggle_like', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({song: song})
+            });
+        }
+
+        async function toggleLikeCurrent() {
+            if(!currentSong) return;
+            await toggleLike(null, currentSong);
+        }
+
+        function updatePlayerLikeBtn() {
+            if(!currentSong) return; 
+            const is = likedSongsCache.some(s => s.id === currentSong.id);
+            document.getElementById('playerLikeBtn').className = is ? "fas fa-heart like-btn-player liked" : "far fa-heart like-btn-player";
+        }
+
+        // --- CONTEXT MENU LOGIC ---
+        document.addEventListener('click', () => document.getElementById('contextMenu').style.display = 'none');
+        
+        // Right Click Handler attached dynamically in renderSongList
+        function showCtxMenu(e, song) {
+            e.preventDefault();
+            ctxSelectedSong = song;
+            const menu = document.getElementById('contextMenu');
+            menu.style.display = 'block';
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+        }
+
+        function ctxAddToQueue() {
+            if(ctxSelectedSong) addToQueue(ctxSelectedSong);
+        }
+        function ctxToggleLike() {
+            if(ctxSelectedSong) toggleLike(null, ctxSelectedSong);
+        }
 
         // --- NAVIGATION ---
         function updateNavHighlight(section) {
             document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
             const desktopNav = document.getElementById(`nav-${section}`);
             if(desktopNav) desktopNav.classList.add('active');
-
             document.querySelectorAll('.bottom-nav .nav-item').forEach(item => item.classList.remove('active'));
             const icons = {'home':0, 'search':1, 'library':2, 'queue':3};
             document.querySelectorAll('.bottom-nav .nav-item')[icons[section]].classList.add('active');
@@ -137,9 +214,8 @@
             document.getElementById('recommendationsContainer').style.display = 'block';
             document.getElementById('chartTitle').style.display = 'block';
             document.getElementById('chartTitle').innerText = "Top Charts";
-            
             loadRecents();
-            loadRecommendations(); // Fixes are inside here
+            loadRecommendations();
             loadCharts();
         }
 
@@ -149,113 +225,37 @@
             document.getElementById('recentsContainer').style.display = 'none';
             document.getElementById('recommendationsContainer').style.display = 'none';
             document.getElementById('chartTitle').style.display = 'none';
-            renderSongList(playbackQueue, true);
+            renderSongList(playbackQueue, true); 
         }
         
         function focusSearch() { updateNavHighlight('search'); document.getElementById('searchInput').focus(); }
         
-        function showFavourites() {
+        async function showFavourites() {
             updateNavHighlight('library');
             document.getElementById('sectionTitle').innerText = "Your Favourites";
             document.getElementById('recentsContainer').style.display = 'none';
             document.getElementById('recommendationsContainer').style.display = 'none';
             document.getElementById('chartTitle').style.display = 'none';
-            renderSongList(getLikedSongs());
+            await fetchLikes(); // Ensure fresh data
+            renderSongList(likedSongsCache);
         }
 
-        // --- QUEUE LOGIC ---
-        function addToQueue(song, event) {
-            if(event) event.stopPropagation();
-            playbackQueue.push(song);
-            updateQueueUI();
-            const btn = event ? event.target : null;
-            if(btn) {
-                btn.className = "fas fa-check like-btn";
-                setTimeout(() => btn.className = "fas fa-list-ul like-btn", 1000);
-            }
+        // --- RECS & RECENTS (Local Storage Only) ---
+        function getLocalStorageSafe(key) {
+            try { return JSON.parse(localStorage.getItem(key) || '[]'); } 
+            catch { return []; }
         }
-
-        function updateQueueUI() {
-            const count = document.getElementById('queueCount');
-            if(playbackQueue.length > 0) {
-                count.style.display = 'inline-block';
-                count.innerText = playbackQueue.length;
-            } else {
-                count.style.display = 'none';
-            }
+        function getRecents() { return getLocalStorageSafe('recentSongs'); }
+        function addToRecents(s){ 
+            let r=getRecents(); r=r.filter(x=>x.id!==s.id); r.unshift(s); if(r.length>10)r.pop(); 
+            localStorage.setItem('recentSongs',JSON.stringify(r)); 
         }
-
-        function playNextInQueue(isUserAction = false) {
-            if (playbackQueue.length > 0) {
-                const nextSong = playbackQueue.shift();
-                updateQueueUI();
-                loadSong(nextSong);
-                if(document.getElementById('nav-queue').classList.contains('active')) {
-                    renderSongList(playbackQueue, true);
-                }
-            } else {
-                if(isUserAction) alert("End of Queue");
-                else playAutoRecommendation();
-            }
-        }
-
-        async function playAutoRecommendation() {
-            if(!currentSong || !currentSong.artist_id) return;
-            try {
-                const res = await fetch(`/recommend?artist_id=${currentSong.artist_id}`);
-                const data = await res.json();
-                if(data && data.length > 0) {
-                    const next = data[Math.floor(Math.random() * data.length)];
-                    loadSong(next);
-                }
-            } catch(e) {}
-        }
-
-        // --- RECOMMENDATIONS LOGIC (FIXED) ---
-        async function loadRecommendations() {
-            const recents = getRecents();
-            const container = document.getElementById('recommendationsContainer');
-            const list = document.getElementById('recommendationsList');
-            
-            if(recents.length === 0) { container.style.display = 'none'; return; }
-            
-            // Check if the most recent song has an artist_id
-            // Use the first song that DOES have an ID
-            const validSong = recents.find(s => s.artist_id);
-            
-            if(!validSong) { 
-                // Old data in local storage? Hide section until they play a new song.
-                container.style.display = 'none'; 
-                return; 
-            }
-            
-            try {
-                const res = await fetch(`/recommend?artist_id=${validSong.artist_id}`);
-                const data = await res.json();
-                
-                if(data.length === 0) { container.style.display = 'none'; return; }
-                
-                container.style.display = 'block';
-                list.innerHTML = '';
-                data.forEach(song => {
-                    const div = document.createElement('div');
-                    div.className = 'recent-card';
-                    div.innerHTML = `<img src="${song.cover}"><div class="recent-title">${song.title}</div>`;
-                    div.onclick = () => loadSong(song);
-                    list.appendChild(div);
-                });
-            } catch(e) { container.style.display = 'none'; }
-        }
-
-        // --- RENDER SONGS ---
+        
+        // --- RENDER LISTS ---
         function renderSongList(songs, isQueueView = false) {
             const list = document.getElementById('resultsList');
             list.innerHTML = '';
-            
-            if (isQueueView && songs.length === 0) {
-                list.innerHTML = '<p style="text-align:center; margin-top:20px;">Queue is empty.</p>';
-                return;
-            }
+            if (isQueueView && songs.length === 0) { list.innerHTML = '<p style="text-align:center;margin-top:20px;color:#777;">Queue empty.</p>'; return; }
             if (!isQueueView && songs.length === 0) { list.innerHTML = '<p>No songs found.</p>'; return; }
             
             const likedSongs = getLikedSongs();
@@ -263,17 +263,16 @@
             songs.forEach((song, index) => {
                 const isLiked = likedSongs.some(s => s.id === song.id);
                 const heartClass = isLiked ? "fas fa-heart liked" : "far fa-heart";
-                
                 const item = document.createElement('div');
                 item.className = 'song-item';
                 
-                let queueAction = '';
-                if (isQueueView) {
-                    queueAction = `<i class="fas fa-trash like-btn" onclick="removeFromQueue(${index}, event)"></i>`;
-                } else {
-                    // Properly escape quotes for the onclick handler
-                    queueAction = `<i class="fas fa-list-ul like-btn" title="Add to Queue" onclick="addToQueue(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(song))}')), event)"></i>`;
-                }
+                // Right click event
+                item.oncontextmenu = (e) => showCtxMenu(e, song);
+
+                let queueBtn = '';
+                const songStr = encodeURIComponent(JSON.stringify(song));
+                if (isQueueView) queueBtn = `<i class="fas fa-trash like-btn" onclick="removeFromQueue(${index}, event)"></i>`;
+                else queueBtn = `<i class="fas fa-list-ul like-btn" onclick="addToQueue(JSON.parse(decodeURIComponent('${songStr}')), event)"></i>`;
 
                 item.innerHTML = `
                     <img src="${song.cover}" class="song-list-cover">
@@ -282,8 +281,8 @@
                         <div class="song-artist">${song.artist}</div>
                     </div>
                     <div class="actions">
-                        ${queueAction}
-                        <i class="${heartClass} like-btn" onclick="toggleLike(event, '${encodeURIComponent(JSON.stringify(song))}')"></i>
+                        ${queueBtn}
+                        <i class="${heartClass} like-btn" onclick="toggleLike(event, '${songStr}')"></i>
                     </div>
                 `;
                 item.onclick = (e) => { if (!e.target.classList.contains('like-btn')) loadSong(song); };
@@ -291,6 +290,27 @@
             });
         }
 
+        // --- QUEUE & PLAYBACK ---
+        function addToQueue(song, event) {
+            if(event) event.stopPropagation();
+            playbackQueue.push(song);
+            updateQueueUI();
+        }
+        function updateQueueUI() {
+            const count = document.getElementById('queueCount');
+            if(playbackQueue.length > 0) { count.style.display='inline-block'; count.innerText=playbackQueue.length; }
+            else count.style.display='none';
+        }
+        function playNextInQueue(isUserAction = false) {
+            if (playbackQueue.length > 0) {
+                const nextSong = playbackQueue.shift();
+                updateQueueUI();
+                loadSong(nextSong);
+                if(document.getElementById('nav-queue').classList.contains('active')) renderSongList(playbackQueue, true);
+            } else {
+                if(!isUserAction) playAutoRecommendation();
+            }
+        }
         function removeFromQueue(index, event) {
             if(event) event.stopPropagation();
             playbackQueue.splice(index, 1);
@@ -298,66 +318,75 @@
             renderSongList(playbackQueue, true);
         }
 
-        // --- CORE PLAYER ---
+        // --- FETCHERS ---
         async function loadCharts() {
-            const list = document.getElementById('resultsList');
-            list.innerHTML = '<div class="loading-text">Loading...</div>';
-            try { const res = await fetch('/chart'); renderSongList(await res.json()); } catch (e) {}
+            const list = document.getElementById('resultsList'); list.innerHTML='<div class="loading-text">Loading Charts...</div>';
+            try{ const res=await fetch('/chart'); renderSongList(await res.json()); }catch(e){}
         }
         async function performSearch() {
             updateNavHighlight('search');
-            const q = document.getElementById('searchInput').value; if(!q) return;
+            const q=document.getElementById('searchInput').value; if(!q)return;
             document.getElementById('recentsContainer').style.display='none';
             document.getElementById('recommendationsContainer').style.display='none';
             document.getElementById('chartTitle').style.display='none';
             document.getElementById('sectionTitle').innerText="Search Results";
-            const list = document.getElementById('resultsList'); list.innerHTML='<div class="loading-text">Searching...</div>';
-            try { const res = await fetch(`/search?q=${encodeURIComponent(q)}`); renderSongList(await res.json()); } catch(e){}
+            const list=document.getElementById('resultsList'); list.innerHTML='<div class="loading-text">Searching...</div>';
+            try{ const res=await fetch(`/search?q=${encodeURIComponent(q)}`); renderSongList(await res.json()); }catch(e){}
         }
-        
-        function getLikedSongs() { return JSON.parse(localStorage.getItem('likedSongs') || '[]'); }
-        function toggleLike(event, songStr) {
-            event.stopPropagation(); const song=JSON.parse(decodeURIComponent(songStr)); const list=getLikedSongs();
-            const idx=list.findIndex(s=>s.id===song.id);
-            if(idx===-1) { list.push(song); event.target.className="fas fa-heart liked like-btn"; }
-            else { list.splice(idx,1); event.target.className="far fa-heart like-btn"; if(document.getElementById('nav-library').classList.contains('active')) renderSongList(list); }
-            localStorage.setItem('likedSongs',JSON.stringify(list)); updatePlayerLikeBtn();
-        }
-        function toggleLikeCurrent() {
-            if(!currentSong) return; const list=getLikedSongs(); const idx=list.findIndex(s=>s.id===currentSong.id);
-            if(idx===-1) list.push(currentSong); else list.splice(idx,1);
-            localStorage.setItem('likedSongs',JSON.stringify(list)); updatePlayerLikeBtn();
-            if(document.getElementById('nav-library').classList.contains('active')) renderSongList(list);
-        }
-        function updatePlayerLikeBtn() {
-            if(!currentSong) return; const is=getLikedSongs().some(s=>s.id===currentSong.id);
-            document.getElementById('playerLikeBtn').className = is?"fas fa-heart like-btn-player liked":"far fa-heart like-btn-player";
-        }
-        function getRecents(){ return JSON.parse(localStorage.getItem('recentSongs')||'[]'); }
-        function addToRecents(s){ let r=getRecents(); r=r.filter(x=>x.id!==s.id); r.unshift(s); if(r.length>10)r.pop(); localStorage.setItem('recentSongs',JSON.stringify(r)); }
-        function loadRecents(){
+
+        // --- RECOMMENDATIONS ---
+        async function loadRecents(){
             const r=getRecents(); const c=document.getElementById('recentsList'); const w=document.getElementById('recentsContainer');
             if(r.length===0){w.style.display='none';return;} w.style.display='block'; c.innerHTML='';
             r.forEach(s=>{
                 const d=document.createElement('div'); d.className='recent-card';
                 d.innerHTML=`<img src="${s.cover}"><div class="recent-title">${s.title}</div>`;
+                // Right click on recents too
+                d.oncontextmenu = (e) => showCtxMenu(e, s);
                 d.onclick=()=>loadSong(s); c.appendChild(d);
             });
         }
+        async function loadRecommendations() {
+            const recents = getRecents();
+            const container = document.getElementById('recommendationsContainer');
+            const list = document.getElementById('recommendationsList');
+            if(recents.length === 0) { container.style.display = 'none'; return; }
+            const validSong = recents.find(s => s.artist_id);
+            if(!validSong) { container.style.display = 'none'; return; }
+            try {
+                const res = await fetch(`/recommend?artist_id=${validSong.artist_id}`);
+                const data = await res.json();
+                if(data.length === 0) { container.style.display = 'none'; return; }
+                container.style.display = 'block'; list.innerHTML = '';
+                data.forEach(song => {
+                    const div = document.createElement('div'); div.className = 'recent-card';
+                    div.innerHTML = `<img src="${song.cover}"><div class="recent-title">${song.title}</div>`;
+                    div.oncontextmenu = (e) => showCtxMenu(e, song);
+                    div.onclick = () => loadSong(song);
+                    list.appendChild(div);
+                });
+            } catch(e) { container.style.display = 'none'; }
+        }
+        async function playAutoRecommendation() {
+            if(!currentSong || !currentSong.artist_id) return;
+            try {
+                const res = await fetch(`/recommend?artist_id=${currentSong.artist_id}`);
+                const data = await res.json();
+                if(data && data.length > 0) loadSong(data[Math.floor(Math.random()*data.length)]);
+            } catch(e) {}
+        }
 
-        audioPlayer.onended = () => { playNextInQueue(); };
-
+        // --- PLAYER & LYRICS ---
+        audioPlayer.onended = () => playNextInQueue();
         async function loadSong(song) {
             currentSong = song;
             addToRecents(song);
-            
             document.getElementById('trackName').innerText = song.title;
             document.getElementById('artistName').innerText = "Downloading...";
             document.getElementById('albumArt').src = song.cover_xl;
             loadingOverlay.style.display = 'flex';
             updatePlayerLikeBtn();
-
-            lyricsContainer.innerHTML = '<div class="loading-lyrics">Searching...</div>';
+            lyricsContainer.innerHTML = '<div class="loading-lyrics">Searching Lyrics...</div>';
             currentLyrics = [];
             updatePlayButton(false);
 
@@ -372,12 +401,10 @@
             try {
                 const audioRes = await fetch(`/play?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`);
                 const audioData = await audioRes.json();
-                if(audioData.error) throw new Error("Error");
-
+                if(audioData.error) throw new Error("Song not found");
                 document.getElementById('artistName').innerText = song.artist;
                 audioPlayer.src = `/stream_proxy?url=${encodeURIComponent(audioData.url)}`;
-                audioPlayer.play().catch(e => console.log("Autoplay blocked"));
-
+                audioPlayer.play().catch(e => console.log("Auto-play prevented"));
                 const lyricsRes = await fetch(`/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`);
                 const lyData = await lyricsRes.json();
                 if (lyData.lyrics) { parseLyrics(lyData.lyrics); renderLyrics(); }
@@ -385,33 +412,13 @@
             } catch (e) {
                 document.getElementById('artistName').innerText = song.artist;
                 loadingOverlay.style.display = 'none';
-                setTimeout(() => playNextInQueue(), 2000); 
             }
-        }
-        
-        function initMobileView() { if (window.innerWidth <= 768) toggleLyricsPanel(false); }
-        function toggleLyricsPanel(force) {
-             isLyricsOpen = force!==undefined ? force : !isLyricsOpen;
-             const s = document.getElementById('lyricsSection');
-             const split = document.getElementById('contentSplit');
-             const btn = document.getElementById('lyricsToggleBtn');
-             if(isLyricsOpen) {
-                 s.style.display='flex'; setTimeout(()=>s.classList.remove('hidden'),10);
-                 if(window.innerWidth>768) split.classList.remove('expanded');
-                 else s.classList.add('mobile-overlay');
-                 btn.classList.add('active');
-             } else {
-                 s.classList.add('hidden'); s.classList.remove('mobile-overlay');
-                 setTimeout(()=>s.style.display='none',300);
-                 split.classList.add('expanded');
-                 btn.classList.remove('active');
-             }
         }
 
         function parseLyrics(s){ const l=s.split('\n'); const r=/^\[(\d{2}):(\d{2}\.\d{2})\](.*)/; currentLyrics=[]; l.forEach(x=>{const m=x.match(r); if(m&&m[3].trim()) currentLyrics.push({time:parseInt(m[1])*60+parseFloat(m[2]),text:m[3].trim()});}); }
         function renderLyrics(){ const c=lyricsContainer; c.innerHTML=''; currentLyrics.forEach((l,i)=>{const p=document.createElement('p'); p.innerText=l.text; p.id=`line-${i}`; p.className='lyric-line'; p.onclick=()=>{audioPlayer.currentTime=l.time}; c.appendChild(p);}); const s=document.createElement('div'); s.style.height="50%"; c.appendChild(s); }
         function syncLyrics(t){ if(!currentLyrics.length)return; let idx=-1; for(let i=0;i<currentLyrics.length;i++){if(t>=currentLyrics[i].time)idx=i;else break;} if(idx!==-1){document.querySelectorAll('.lyric-line').forEach(e=>e.classList.remove('active')); const el=document.getElementById(`line-${idx}`); if(el){el.classList.add('active'); el.scrollIntoView({behavior:'smooth',block:'center'});}} }
-        
+
         audioPlayer.addEventListener('waiting', () => { loadingOverlay.style.display = 'flex'; });
         audioPlayer.addEventListener('playing', () => { loadingOverlay.style.display = 'none'; updatePlayButton(true); });
         audioPlayer.addEventListener('pause', () => { updatePlayButton(false); });
@@ -422,6 +429,8 @@
         progressBar.oninput = () => { audioPlayer.currentTime = (progressBar.value / 100) * audioPlayer.duration; }
         function formatTime(s) { const m=Math.floor(s/60), sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; }
         document.getElementById('searchInput').addEventListener("keypress", (e) => { if (e.key === "Enter") performSearch(); });
+        function initMobileView() { if (window.innerWidth <= 768) toggleLyricsPanel(false); }
+        function toggleLyricsPanel(force) { isLyricsOpen = force!==undefined ? force : !isLyricsOpen; const s = document.getElementById('lyricsSection'); const split = document.getElementById('contentSplit'); const btn = document.getElementById('lyricsToggleBtn'); if(isLyricsOpen) { s.style.display='flex'; setTimeout(()=>s.classList.remove('hidden'),10); if(window.innerWidth>768) split.classList.remove('expanded'); else s.classList.add('mobile-overlay'); btn.classList.add('active'); } else { s.classList.add('hidden'); s.classList.remove('mobile-overlay'); setTimeout(()=>s.style.display='none',300); split.classList.add('expanded'); btn.classList.remove('active'); } }
     </script>
 </body>
 </html>

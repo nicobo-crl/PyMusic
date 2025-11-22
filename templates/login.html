@@ -24,7 +24,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             width: 300px;
         }
-        h2 { margin-bottom: 30px; }
+        h2 { margin-bottom: 20px; }
         i { color: #1DB954; font-size: 40px; margin-bottom: 10px; }
         input {
             padding: 12px;
@@ -32,14 +32,14 @@
             border: 1px solid #333;
             background: #282828;
             color: white;
-            width: 80%;
-            margin-top: 10px;
+            width: 85%;
+            margin-bottom: 10px;
             text-align: center;
             outline: none;
         }
         input:focus { border-color: #1DB954; }
         button {
-            margin-top: 20px;
+            margin-top: 15px;
             padding: 12px 40px;
             background-color: #1DB954;
             color: white;
@@ -48,9 +48,9 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 16px;
-            transition: transform 0.1s;
+            width: 100%;
         }
-        button:active { transform: scale(0.95); }
+        button:hover { transform: scale(1.05); }
         .error { color: #ff5555; margin-top: 15px; font-size: 14px; }
     </style>
 </head>
@@ -59,7 +59,9 @@
         <i class="fas fa-music"></i>
         <h2>PyMusic</h2>
         <form method="POST">
-            <input type="password" name="password" placeholder="Password" autofocus required>
+            <input type="text" name="username" placeholder="Username" autofocus required autocomplete="off">
+            <br>
+            <input type="password" name="password" placeholder="Password" required>
             <br>
             <button type="submit">Login</button>
         </form>

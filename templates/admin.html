@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - PyMusic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 800px; }
+        h1 { color: #1DB954; text-align: center; }
+        .back-btn { position: absolute; top: 20px; left: 20px; color: #aaa; text-decoration: none; font-weight: bold; }
+        .back-btn:hover { color: white; }
+        
+        /* Add User Form */
+        .add-user-box { background: #181818; padding: 20px; border-radius: 8px; margin-bottom: 30px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; }
+        input, select { padding: 10px; border-radius: 5px; border: 1px solid #333; background: #282828; color: white; }
+        button { padding: 10px 20px; background: #1DB954; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; }
+        
+        /* Table */
+        table { width: 100%; border-collapse: collapse; background: #181818; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #282828; }
+        th { background: #222; color: #1DB954; }
+        tr:last-child td { border-bottom: none; }
+        
+        .delete-btn { color: #ff5555; text-decoration: none; font-size: 14px; border: 1px solid #ff5555; padding: 5px 10px; border-radius: 4px; transition: 0.2s; }
+        .delete-btn:hover { background: #ff5555; color: white; }
+        .role-tag { background: #333; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .role-admin { background: #1DB954; color: black; }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Player</a>
+    
+    <div class="container">
+        <h1>User Management</h1>
+        
+        <!-- Add User -->
+        <div class="add-user-box">
+            <form action="/add_user" method="POST" style="display:contents;">
+                <input type="text" name="username" placeholder="New Username" required autocomplete="off">
+                <input type="password" name="password" placeholder="Password" required>
+                <select name="role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button type="submit"><i class="fas fa-plus"></i> Add User</button>
+            </form>
+        </div>
+
+        <!-- List Users -->
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>#{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>
+                        <span class="role-tag {% if user.role == 'admin' %}role-admin{% endif %}">
+                            {{ user.role }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if user.username != 'admin' and user.id != session.get('user_id') %}
+                        <a href="/delete_user/{{ user.id }}" class="delete-btn" onclick="return confirm('Delete this user?');">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
+                        {% else %}
+                        <span style="color:#555; font-size:12px;">Protected</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

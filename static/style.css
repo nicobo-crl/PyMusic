@@ -457,3 +457,35 @@ input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: 
     .recent-card { width: 80px; }
     .recent-card img { width: 80px; height: 80px; }
 }
+/* --- Context Menu --- */
+.context-menu {
+    position: absolute;
+    background-color: #282828;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 5px 0;
+    width: 150px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: none;
+}
+
+.context-menu-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.context-menu-item:hover {
+    background-color: #3E3E3E;
+}
+
+.context-menu-item i {
+    width: 20px;
+    text-align: center;
+    color: #b3b3b3;
+}
