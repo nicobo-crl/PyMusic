@@ -1,0 +1,397 @@
+:root {
+    /* Apple Dark Theme Palette */
+    --bg-base: #000000;
+    --bg-translucent: rgba(28, 28, 30, 0.75); /* Glass effect base */
+    --bg-card: #1C1C1E;
+    --bg-card-hover: #2C2C2E;
+    --primary: #fa2d48; /* Apple Music Red/Pink - change back to #1DB954 for Green */
+    --text-white: #FFFFFF;
+    --text-gray: #98989E;
+    --separator: rgba(255, 255, 255, 0.1);
+    
+    --nav-height: 60px;
+    --player-height: 85px;
+    --sidebar-width: 260px;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-white);
+    height: 100dvh; 
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.container {
+    display: flex;
+    height: 100%;
+    background: radial-gradient(circle at 50% -20%, #2c2c2e 0%, #000000 60%); /* Subtle top spotlight */
+}
+
+/* ================= SIDEBAR (Desktop) ================= */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--separator);
+    z-index: 10;
+}
+
+.logo { 
+    font-size: 22px; 
+    font-weight: 700; 
+    margin-bottom: 40px; 
+    color: white; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px;
+}
+
+.sidebar ul { list-style: none; padding: 0; margin: 0; }
+
+.sidebar li { 
+    padding: 12px 16px; 
+    color: var(--text-gray); 
+    cursor: pointer; 
+    font-weight: 500; 
+    font-size: 15px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar li i { margin-right: 15px; width: 20px; font-size: 18px; text-align: center; }
+
+.sidebar li:hover { background-color: rgba(255,255,255,0.05); color: white; }
+.sidebar li.active { background-color: var(--bg-card-hover); color: var(--primary); }
+
+/* ================= MAIN CONTENT ================= */
+.main-content {
+    flex: 1;
+    padding: 20px 40px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Search Bar - Apple Style */
+.search-bar-container { display: flex; gap: 10px; margin-bottom: 25px; height: 40px; }
+input[type="text"] { 
+    flex: 1; 
+    padding: 0 15px 0 40px; /* Space for icon if you add one inside */
+    border-radius: 8px; 
+    border: none; 
+    font-size: 17px; 
+    background: var(--bg-card); 
+    color: white;
+    transition: background 0.2s;
+}
+input[type="text"]:focus { background: var(--bg-card-hover); outline: none; }
+button { 
+    padding: 0 25px; 
+    border-radius: 8px; 
+    border: none; 
+    background-color: var(--primary); 
+    color: white; 
+    font-weight: 600; 
+    cursor: pointer; 
+    font-size: 15px;
+}
+button:hover { opacity: 0.9; }
+
+/* Split View */
+.content-split { display: flex; gap: 30px; flex: 1; overflow: hidden; }
+
+.results-section { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    overflow-y: auto; 
+    padding-bottom: var(--player-height); /* Space for player */
+    /* Scrollbar Styling */
+    scrollbar-width: thin;
+    scrollbar-color: #444 transparent;
+}
+
+h2, h3 { font-weight: 700; letter-spacing: -0.5px; margin-top: 10px; }
+
+/* Recents & Cards */
+.recents-wrapper { margin-bottom: 30px; }
+.horizontal-scroll {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 15px;
+}
+.horizontal-scroll::-webkit-scrollbar { height: 6px; }
+.horizontal-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+.recent-card { width: 130px; flex-shrink: 0; cursor: pointer; transition: transform 0.2s; }
+.recent-card:hover { transform: scale(1.03); }
+.recent-card img { 
+    width: 130px; height: 130px; 
+    border-radius: 8px; 
+    margin-bottom: 8px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.recent-title { font-size: 13px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+
+/* Song List (Apple Style Rows) */
+.song-list { display: flex; flex-direction: column; }
+.song-item { 
+    display: flex; 
+    align-items: center; 
+    padding: 12px 15px; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    border-bottom: 1px solid var(--separator);
+}
+.song-item:last-child { border-bottom: none; }
+.song-item:hover { background-color: var(--bg-card-hover); }
+
+.song-list-cover { width: 48px; height: 48px; margin-right: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.song-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.song-title { color: white; font-size: 16px; font-weight: 500; margin-bottom: 2px; }
+.song-artist { color: var(--text-gray); font-size: 14px; }
+
+/* Action Buttons */
+.actions { display: flex; align-items: center; gap: 15px; }
+.like-btn { color: var(--text-gray); transition: 0.2s; font-size: 18px; }
+.like-btn:hover { color: var(--primary); transform: scale(1.1); }
+.like-btn.liked { color: var(--primary); }
+
+/* ================= LYRICS PANEL (Apple Style) ================= */
+.lyrics-section {
+    width: 400px;
+    background-color: rgba(20, 20, 20, 0.6); /* Darker, glassy background */
+    backdrop-filter: blur(40px) saturate(150%);
+    -webkit-backdrop-filter: blur(40px) saturate(150%);
+    border-radius: 20px;
+    padding: 40px; /* More breathing room */
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    margin-bottom: var(--player-height);
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.lyrics-section.hidden { width: 0; padding: 0; border: none; opacity: 0; margin: 0; }
+
+.lyrics-container { 
+    flex: 1; 
+    overflow-y: auto; 
+    /* The Fade Effect (Top and Bottom) */
+    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    padding-right: 10px; /* Space for scrollbar */
+}
+
+/* Hide Scrollbar but allow scrolling */
+.lyrics-container::-webkit-scrollbar { width: 0px; background: transparent; }
+
+/* INACTIVE LINES (Blurred) */
+.lyric-line { 
+    color: rgba(255, 255, 255, 0.6); 
+    font-size: 24px; /* Larger text like Apple */
+    font-weight: 700; 
+    margin: 30px 0; /* More spacing between lines */
+    cursor: pointer; 
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth easing */
+    transform-origin: left center;
+    
+    /* The Blur Magic */
+    filter: blur(2px); 
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.lyric-line:hover { 
+    filter: blur(0.5px); 
+    opacity: 0.8; 
+}
+
+/* ACTIVE LINE (Crystal Clear) */
+.lyric-line.active { 
+    color: #FFFFFF; 
+    filter: blur(0); 
+    opacity: 1;
+    transform: scale(1.1) translateX(10px); /* Pop out and move slightly right */
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.6); /* Glow effect */
+}
+/* ================= PLAYER BAR (Glass) ================= */
+.player-bar {
+    position: fixed; bottom: 0; width: 100%; height: var(--player-height);
+    background-color: var(--bg-translucent);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border-top: 1px solid var(--separator);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 30px; box-sizing: border-box; z-index: 1000;
+}
+
+/* Now Playing */
+.now-playing { display: flex; align-items: center; width: 25%; min-width: 200px; }
+.img-container { position: relative; width: 56px; height: 56px; margin-right: 15px; flex-shrink: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+.now-playing img { width: 100%; height: 100%; object-fit: cover; }
+.track-info { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.track-name { font-size: 15px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.artist-name { font-size: 13px; color: var(--text-gray); }
+
+/* Controls */
+.player-controls { flex: 1; max-width: 600px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.control-buttons { display: flex; align-items: center; gap: 25px; margin-bottom: 5px; }
+.control-buttons button { background: none; color: white; border: none; font-size: 28px; padding: 0; transition: transform 0.1s; }
+.control-buttons button:active { transform: scale(0.95); }
+.control-buttons .step { font-size: 18px; color: var(--text-gray); }
+.control-buttons .step:hover { color: white; }
+
+/* Progress Bar */
+.progress-container { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-gray); font-family: monospace; }
+input[type="range"] { 
+    -webkit-appearance: none; width: 100%; height: 4px; 
+    border-radius: 2px; background: rgba(255,255,255,0.2); outline: none; cursor: pointer; 
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; 
+    background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s;
+}
+.progress-container:hover input[type="range"]::-webkit-slider-thumb { opacity: 1; }
+
+/* Volume & Extra Controls */
+.volume-controls { 
+    width: 25%; display: flex; justify-content: flex-end; align-items: center; 
+}
+.vol-slider-container {
+    display: flex; align-items: center; width: 120px; margin-right: 20px;
+}
+.vol-slider-container i { color: var(--text-gray); font-size: 14px; margin-right: 8px; }
+#volumeSlider { background: rgba(255,255,255,0.2); height: 4px; }
+#volumeSlider::-webkit-slider-thumb { opacity: 1; width: 10px; height: 10px; }
+
+.lyrics-icon { font-size: 18px; color: var(--text-gray); padding: 8px; border-radius: 6px; transition: 0.2s; background: rgba(255,255,255,0.05); }
+.lyrics-icon:hover { background: rgba(255,255,255,0.1); color: white; }
+.lyrics-icon.active { background: var(--primary); color: white; box-shadow: 0 2px 10px rgba(250, 45, 72, 0.4); }
+
+/* ================= MOBILE OPTIMIZATION ================= */
+.bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+    .container { display: block; height: auto; }
+    .sidebar { display: none; }
+    .main-content { padding: 20px 15px; padding-bottom: calc(var(--player-height) + var(--nav-height) + 20px); }
+    
+    /* Bottom Nav (Glass) */
+    .bottom-nav {
+        position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height);
+        background: rgba(20, 20, 20, 0.85);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid var(--separator);
+        display: flex; justify-content: space-around; align-items: center;
+        z-index: 1001;
+        padding-bottom: env(safe-area-inset-bottom); /* iPhone X+ support */
+    }
+    .nav-item { color: var(--text-gray); display: flex; flex-direction: column; align-items: center; font-size: 10px; flex: 1; padding: 5px 0; }
+    .nav-item i { font-size: 22px; margin-bottom: 3px; }
+    .nav-item.active { color: var(--primary); }
+
+    /* Floating Player Bar above Nav */
+    .player-bar { 
+        bottom: calc(var(--nav-height) + env(safe-area-inset-bottom)); 
+        height: 60px; padding: 0 10px; 
+        background: rgba(30,30,30,0.9);
+        border-bottom: 1px solid var(--separator);
+    }
+    
+    .now-playing { width: 50%; min-width: auto; }
+    .img-container { width: 40px; height: 40px; margin-right: 10px; }
+    .track-name { font-size: 13px; }
+    .artist-name { font-size: 11px; }
+
+    .player-controls { width: 40%; max-width: none; }
+    .control-buttons button { font-size: 24px; }
+    .control-buttons .step { display: none; }
+    
+    /* Hide specific desktop elements */
+    .progress-container, .volume-controls { display: none; }
+    /* But Keep Lyrics button accessible via a different mobile UI if needed, or hide */
+    
+    /* Mobile Lyrics Overlay */
+    .lyrics-section.mobile-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 2000; border-radius: 0; margin: 0;
+        background: rgba(10,10,10, 0.95);
+        padding-top: 50px; padding-bottom: 100px;
+    }
+}
+
+/* ================= LANDSCAPE MODE FIX ================= */
+@media (max-height: 500px) and (orientation: landscape) {
+    /* Compress vertical space */
+    .container { height: calc(100vh - 60px); } /* Smaller player height */
+    
+    .player-bar { 
+        height: 60px; 
+        padding: 0 20px;
+        bottom: 0; /* Assuming sidebar handles nav, or desktop view */
+    }
+
+    .img-container { width: 40px; height: 40px; }
+    .control-buttons { margin-bottom: 0; gap: 15px; }
+    .control-buttons button { font-size: 20px; }
+    
+    /* Ensure Volume slider fits */
+    .volume-controls { 
+        width: 30%; 
+        display: flex; 
+        justify-content: flex-end; 
+    }
+    .vol-slider-container {
+        width: 80px; /* Smaller width */
+        margin-right: 10px;
+        display: flex; /* Force flex */
+    }
+    
+    .lyrics-icon { font-size: 16px; padding: 5px; }
+    
+    /* If on mobile landscape */
+    @media (max-width: 900px) {
+        .bottom-nav { display: none; } /* Hide bottom nav in landscape usually better */
+        .sidebar { display: flex; width: 200px; } /* Force sidebar back if space allows */
+        .progress-container { display: flex; } /* Show progress bar */
+    }
+}
+
+/* Context Menu */
+.context-menu {
+    position: absolute;
+    background-color: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--separator);
+    border-radius: 10px;
+    padding: 6px;
+    width: 180px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: none;
+}
+.context-menu-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: #fff;
+    font-size: 14px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.context-menu-item:hover { background-color: var(--primary); }
