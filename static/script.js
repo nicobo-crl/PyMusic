@@ -292,4 +292,82 @@ progressBar.oninput = () => { audioPlayer.currentTime = (progressBar.value / 100
 function formatTime(s) { const m=Math.floor(s/60), sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; }
 document.getElementById('searchInput').addEventListener("keypress", (e) => { if (e.key === "Enter") performSearch(); });
 function initMobileView() { if (window.innerWidth <= 768) toggleLyricsPanel(false); }
-function toggleLyricsPanel(force) { isLyricsOpen = force!==undefined ? force : !isLyricsOpen; const s = document.getElementById('lyricsSection'); const split = document.getElementById('contentSplit'); const btn = document.getElementById('lyricsToggleBtn'); if(isLyricsOpen) { s.style.display='flex'; setTimeout(()=>s.classList.remove('hidden'),10); if(window.innerWidth>768) split.classList.remove('expanded'); else s.classList.add('mobile-overlay'); btn.classList.add('active'); } else { s.classList.add('hidden'); s.classList.remove('mobile-overlay'); setTimeout(()=>s.style.display='none',300); split.classList.add('expanded'); btn.classList.remove('active'); } }
+function toggleLyricsPanel(force) {
+    isLyricsOpen = force !== undefined ? force : !isLyricsOpen;
+    const s = document.getElementById('lyricsSection');
+    const split = document.getElementById('contentSplit');
+    const btns = document.querySelectorAll('.lyrics-icon');
+
+    if (isLyricsOpen) {
+        s.style.display = 'flex';
+        setTimeout(() => s.classList.remove('hidden'), 10);
+        if (window.innerWidth > 768) {
+            split.classList.remove('expanded');
+        } else {
+            s.classList.add('mobile-overlay');
+        }
+        btns.forEach(btn => btn.classList.add('active'));
+    } else {
+        s.classList.add('hidden');
+        s.classList.remove('mobile-overlay');
+        setTimeout(() => s.style.display = 'none', 300);
+        split.classList.add('expanded');
+        btns.forEach(btn => btn.classList.remove('active'));
+    }
+}
+
+function toggleNowPlayingModal() {
+    const modal = document.getElementById('nowPlayingModal');
+    modal.classList.toggle('active');
+    if (modal.classList.contains('active')) {
+        updateNowPlayingModal();
+    }
+}
+
+document.querySelector('.player-bar .now-playing').addEventListener('click', () => {
+    if (window.innerWidth <= 768 && currentSong) {
+        toggleNowPlayingModal();
+    }
+});
+
+audioPlayer.addEventListener('play', () => {
+    updateNowPlayingModal();
+});
+
+function updateNowPlayingModal() {
+    if (!currentSong) return;
+
+    document.getElementById('nowPlayingModalAlbumArt').src = currentSong.cover_xl;
+    document.getElementById('nowPlayingModalTrackName').innerText = currentSong.title;
+    document.getElementById('nowPlayingModalArtistName').innerText = currentSong.artist;
+}
+
+audioPlayer.addEventListener('timeupdate', () => {
+    if (audioPlayer.duration) {
+        const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+        document.getElementById('nowPlayingModalProgressBar').value = progress;
+        document.getElementById('nowPlayingModalCurrentTime').innerText = formatTime(audioPlayer.currentTime);
+        document.getElementById('nowPlayingModalDuration').innerText = formatTime(audioPlayer.duration);
+    }
+});
+
+document.getElementById('nowPlayingModalProgressBar').addEventListener('input', (e) => {
+    const newTime = (e.target.value / 100) * audioPlayer.duration;
+    audioPlayer.currentTime = newTime;
+});
+
+document.getElementById('nowPlayingModalVolumeSlider').addEventListener('input', (e) => {
+    audioPlayer.volume = e.target.value;
+});
+
+audioPlayer.addEventListener('volumechange', () => {
+    document.getElementById('nowPlayingModalVolumeSlider').value = audioPlayer.volume;
+});
+
+audioPlayer.addEventListener('playing', () => {
+    document.getElementById('nowPlayingModalPlayPauseBtn').innerHTML = '<i class="fas fa-pause-circle"></i>';
+});
+
+audioPlayer.addEventListener('pause', () => {
+    document.getElementById('nowPlayingModalPlayPauseBtn').innerHTML = '<i class="fas fa-play-circle"></i>';
+});

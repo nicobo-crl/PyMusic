@@ -75,6 +75,7 @@
                 <div id="artistName" class="artist-name"></div>
             </div>
             <i id="playerLikeBtn" class="far fa-heart like-btn-player" onclick="toggleLikeCurrent()"></i>
+            <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon" onclick="toggleLyricsPanel()"></i>
         </div>
         
         <div class="player-controls">
@@ -96,7 +97,6 @@
                 <i class="fas fa-volume-down" style="font-size:12px; color:#aaa; margin-right:5px;"></i>
                 <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
             </div>
-            <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon active" onclick="toggleLyricsPanel()" style="margin-left: 15px;"></i>
         </div>
     </div>
 
@@ -104,6 +104,32 @@
     <div id="contextMenu" class="context-menu">
         <div class="context-menu-item" onclick="ctxAddToQueue()"><i class="fas fa-list-ul"></i> Add to Queue</div>
         <div class="context-menu-item" onclick="ctxToggleLike()"><i class="fas fa-heart"></i> Toggle Like</div>
+    </div>
+
+    <div class="now-playing-modal" id="nowPlayingModal">
+        <i class="fas fa-times close-btn" onclick="toggleNowPlayingModal()"></i>
+        <img src="" id="nowPlayingModalAlbumArt" class="album-art">
+        <div class="track-info">
+            <div id="nowPlayingModalTrackName" class="track-name"></div>
+            <div id="nowPlayingModalArtistName" class="artist-name"></div>
+        </div>
+        <div class="progress-container">
+            <span id="nowPlayingModalCurrentTime">0:00</span>
+            <input type="range" id="nowPlayingModalProgressBar" value="0" max="100">
+            <span id="nowPlayingModalDuration">0:00</span>
+        </div>
+        <div class="control-buttons">
+            <button onclick="seek(-10)" class="step"><i class="fas fa-backward"></i></button>
+            <button id="nowPlayingModalPlayPauseBtn" onclick="togglePlay()"><i class="fas fa-play-circle"></i></button>
+            <button onclick="playNextInQueue(true)" class="step"><i class="fas fa-forward"></i></button>
+        </div>
+        <div class="volume-controls">
+            <div class="vol-slider-container">
+                <i class="fas fa-volume-down" style="font-size:12px; color:#aaa; margin-right:5px;"></i>
+                <input type="range" id="nowPlayingModalVolumeSlider" min="0" max="1" step="0.01" value="1">
+            </div>
+            <i class="fas fa-microphone lyrics-icon" onclick="toggleLyricsPanel()"></i>
+        </div>
     </div>
 
     <div class="bottom-nav">

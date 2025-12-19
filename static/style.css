@@ -20,13 +20,13 @@ body {
     background-color: var(--bg-base);
     color: var(--text-white);
     height: 100dvh; 
-    overflow: hidden;
     -webkit-font-smoothing: antialiased;
 }
 
 .container {
     display: flex;
     height: 100%;
+    overflow: hidden;
     background: radial-gradient(circle at 50% -20%, #2c2c2e 0%, #000000 60%); /* Subtle top spotlight */
 }
 
@@ -240,8 +240,8 @@ h2, h3 { font-weight: 700; letter-spacing: -0.5px; margin-top: 10px; }
 }
 
 /* Now Playing */
-.now-playing { display: flex; align-items: center; width: 25%; min-width: 200px; }
-.img-container { position: relative; width: 56px; height: 56px; margin-right: 15px; flex-shrink: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+.now-playing { display: flex; align-items: center; width: 25%; min-width: 200px; gap: 15px;}
+.img-container { position: relative; width: 56px; height: 56px; flex-shrink: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
 .now-playing img { width: 100%; height: 100%; object-fit: cover; }
 .track-info { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .track-name { font-size: 15px; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -286,9 +286,11 @@ input[type="range"]::-webkit-slider-thumb {
 .bottom-nav { display: none; }
 
 @media (max-width: 768px) {
-    .container { display: block; height: auto; }
+    body { overflow-y: auto; }
+    .container { display: block; height: auto; overflow: visible; }
     .sidebar { display: none; }
     .main-content { padding: 20px 15px; padding-bottom: calc(var(--player-height) + var(--nav-height) + 20px); }
+    .results-section { padding-bottom: 0; }
     
     /* Bottom Nav (Glass) */
     .bottom-nav {
@@ -321,10 +323,71 @@ input[type="range"]::-webkit-slider-thumb {
     .control-buttons button { font-size: 24px; }
     .control-buttons .step { display: none; }
     
-    /* Hide specific desktop elements */
-    .progress-container, .volume-controls { display: none; }
-    /* But Keep Lyrics button accessible via a different mobile UI if needed, or hide */
-    
+    /* Now playing screen modal */
+    .now-playing-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-base);
+        z-index: 1002;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .now-playing-modal.active {
+        display: flex;
+    }
+
+    .now-playing-modal .album-art {
+        width: 80%;
+        max-width: 300px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+
+    .now-playing-modal .track-info {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .now-playing-modal .track-name {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .now-playing-modal .artist-name {
+        font-size: 18px;
+        color: var(--text-gray);
+    }
+    .now-playing-modal .progress-container {
+        display: flex;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .progress-container, .volume-controls {
+        display: none;
+    }
+    .now-playing-modal .volume-controls {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .now-playing-modal .close-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 24px;
+        color: white;
+        cursor: pointer;
+    }
     /* Mobile Lyrics Overlay */
     .lyrics-section.mobile-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
