@@ -4,59 +4,253 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>PyMusic</title>
-    <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1db954;
+            --dark: #121212;
+            --light: #b3b3b3;
+            --bg: #181818;
+            --sidebar-width: 240px;
+            --player-height: 90px;
+            --nav-height: 60px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            height: 100%;
+            overflow: hidden; /* Prevent body bounce */
+            font-family: 'Circular', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--dark);
+            color: white;
+        }
+
+        /* LAYOUT */
+        .container {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .main-content {
+            flex: 1;
+            background: linear-gradient(180deg, #222 0%, var(--dark) 100%);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* NAVIGATION */
+        .sidebar .logo { font-size: 24px; color: white; margin-bottom: 30px; font-weight: bold; }
+        .sidebar ul { list-style: none; }
+        .sidebar li { padding: 10px 0; color: var(--light); cursor: pointer; transition: 0.2s; display: flex; align-items: center; }
+        .sidebar li:hover, .sidebar li.active { color: white; }
+        .sidebar li i { margin-right: 15px; width: 20px; }
+
+        /* CONTENT AREAS */
+        .search-bar-container {
+            padding: 20px 30px;
+            display: flex;
+            gap: 10px;
+            position: sticky; top: 0; z-index: 10;
+            background: rgba(18,18,18,0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        input[type="text"] {
+            flex: 1; padding: 12px 20px; border-radius: 50px; border: 0;
+            background: white; color: black; font-size: 16px;
+        }
+
+        button { background: var(--primary); border: 0; border-radius: 50px; width: 45px; cursor: pointer; }
+
+        .content-split {
+            display: flex;
+            flex: 1;
+            overflow: hidden; /* Important for scrolling inside */
+        }
+
+        .results-section {
+            flex: 1;
+            padding: 20px 30px 120px 30px; /* Bottom padding for player */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .lyrics-section {
+            width: 350px;
+            background: #000;
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        /* SONG LISTS */
+        .song-item {
+            display: flex; align-items: center; padding: 10px;
+            border-radius: 5px; cursor: pointer; transition: 0.2s;
+        }
+        .song-item:hover { background: rgba(255,255,255,0.1); }
+        .song-item img { width: 50px; height: 50px; border-radius: 4px; margin-right: 15px; object-fit: cover; }
+        .song-info { flex: 1; overflow: hidden; }
+        .song-title { color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-artist { color: var(--light); font-size: 14px; }
+        .action-btn { background: transparent; color: var(--light); margin-left: 10px; }
+        .action-btn:hover { color: var(--primary); }
+
+        /* PLAYER BAR */
+        .player-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--player-height);
+            background: #181818;
+            border-top: 1px solid #282828;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+
+        .now-playing { display: flex; align-items: center; width: 30%; }
+        .now-playing img { width: 56px; height: 56px; border-radius: 4px; margin-right: 15px; }
+        .track-info { display: flex; flex-direction: column; justify-content: center; overflow: hidden; margin-right: 10px;}
+        .track-name { color: white; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artist-name { color: var(--light); font-size: 12px; }
+
+        .player-controls { display: flex; flex-direction: column; align-items: center; width: 40%; }
+        .control-buttons { display: flex; align-items: center; margin-bottom: 5px; gap: 20px; }
+        .control-buttons button { background: none; color: var(--light); font-size: 16px; }
+        .control-buttons button:hover { color: white; }
+        #playPauseBtn { font-size: 32px; color: white; }
+
+        .progress-container { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--light); }
+        input[type="range"] {
+            flex: 1; -webkit-appearance: none; height: 4px; background: #535353; border-radius: 2px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px; background: white; border-radius: 50%;
+        }
+
+        .volume-controls { width: 30%; display: flex; justify-content: flex-end; align-items: center; }
+        .vol-slider-container { width: 100px; display: flex; align-items: center; }
+
+        .lyrics-container { white-space: pre-wrap; line-height: 1.6; color: var(--light); font-size: 16px; margin-top: 20px; }
+        .lyrics-active-line { color: white; font-weight: bold; }
+
+        /* MOBILE NAV */
+        .bottom-nav {
+            display: none;
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            height: var(--nav-height); background: #121212;
+            border-top: 1px solid #333; z-index: 101;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #b3b3b3; font-size: 10px; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item.active { color: white; }
+
+        /* MOBILE RESPONSIVENESS */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .bottom-nav { display: flex; }
+            
+            /* Hide Lyrics column on mobile default */
+            .lyrics-section { 
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.95); z-index: 200; 
+                transform: translateY(100%); transition: transform 0.3s ease-in-out;
+                border: none; padding-top: 60px;
+            }
+            .lyrics-section.active { transform: translateY(0); }
+            .lyrics-close { display: block; position: absolute; top: 20px; right: 20px; font-size: 24px; padding: 10px; }
+
+            .results-section { padding: 10px 15px 150px 15px; } /* More padding bottom for nav+player */
+            
+            .player-bar {
+                bottom: var(--nav-height); /* Sit on top of bottom nav */
+                padding: 5px 10px;
+                height: 60px;
+                background: #1e1e1e;
+            }
+            
+            /* Simplify Player on Mobile */
+            .now-playing { width: 65%; }
+            .now-playing img { width: 40px; height: 40px; margin-right: 10px; }
+            .volume-controls { display: none; } /* Hide vol on mobile */
+            .player-controls { width: 35%; flex-direction: row; justify-content: flex-end; }
+            .progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; padding: 0; gap: 0; }
+            .progress-container span { display: none; } /* Hide time numbers on small player */
+            input[type="range"] { height: 2px; border-radius: 0; }
+            input[type="range"]::-webkit-slider-thumb { width: 0; height: 0; } /* Hide thumb */
+            .control-buttons { margin: 0; gap: 15px; }
+            .step { display: none; } /* Hide skip backward/forward specific buttons if space is tight */
+
+            /* Make play button accessible */
+            #playPauseBtn { font-size: 28px; }
+            
+            /* Add Mobile Lyrics Toggle in Player */
+            #lyricsToggleBtn { display: block; margin-left: 15px; font-size: 18px; color: var(--primary); }
+        }
+
+        @media (min-width: 769px) {
+            .lyrics-close { display: none; }
+            #lyricsToggleBtn { display: none; } /* Hide lyrics toggle in player on desktop if side pane exists */
+        }
+    </style>
 </head>
 <body>
 
     <div class="container">
+        <!-- Desktop Sidebar -->
         <div class="sidebar">
             <div class="logo"><i class="fas fa-music"></i> PyMusic</div>
             <ul>
-                <li id="nav-home" class="active" onclick="showHome()"><i class="fas fa-home"></i> Home</li>
-                <li id="nav-search" onclick="focusSearch()"><i class="fas fa-search"></i> Search</li>
-                <li id="nav-library" onclick="showFavourites()"><i class="fas fa-heart"></i> Favourites</li>
-                <li id="nav-queue" onclick="showQueue()"><i class="fas fa-list-ul"></i> Queue <span id="queueCount" style="display:none; background:var(--primary); color:black; border-radius:50%; padding:2px 6px; font-size:10px; margin-left:5px;">0</span></li>
-                
-                <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 20px;">
-                    <li style="cursor: default; color: #fff; font-size: 12px; margin-bottom: 10px;">Logged in as: <strong>{{ username }}</strong></li>
-                    {% if role == 'admin' %}
-                    <li onclick="window.location.href='/admin'"><i class="fas fa-users-cog"></i> Admin</li>
-                    {% endif %}
-                    <li onclick="window.location.href='/logout'"><i class="fas fa-sign-out-alt"></i> Logout</li>
-                </div>
+                <li onclick="showHome()"><i class="fas fa-home"></i> Home</li>
+                <li onclick="focusSearch()"><i class="fas fa-search"></i> Search</li>
+                <li onclick="showFavourites()"><i class="fas fa-heart"></i> Favourites</li>
+                <li onclick="window.location.href='/logout'"><i class="fas fa-sign-out-alt"></i> Logout</li>
             </ul>
         </div>
 
         <div class="main-content">
             <div class="search-bar-container">
-                <input type="text" id="searchInput" placeholder="Search songs, artists...">
+                <input type="text" id="searchInput" placeholder="Search songs, artists..." onkeypress="if(event.key==='Enter') performSearch()">
                 <button onclick="performSearch()"><i class="fas fa-search"></i></button>
             </div>
 
-            <div class="content-split" id="contentSplit">
+            <div class="content-split">
+                <!-- Results -->
                 <div class="results-section" id="resultsSection">
-                    <h2 id="sectionTitle">Home</h2>
-
-                    <div id="recentsContainer" class="recents-wrapper" style="display:none;">
-                        <h3>Recently Played</h3>
-                        <div id="recentsList" class="horizontal-scroll"></div>
-                    </div>
-                    <div id="recommendationsContainer" class="recents-wrapper" style="display:none;">
-                        <h3>Made For You</h3>
-                        <div id="recommendationsList" class="horizontal-scroll"></div>
-                    </div>
-                    <h3 id="chartTitle">Top Charts</h3>
+                    <h2 id="sectionTitle">Top Charts</h2>
                     <div id="resultsList" class="song-list">
-                        <div class="loading-text">Loading...</div>
+                        <div style="text-align:center; padding:20px; color:#666;">Loading...</div>
                     </div>
                 </div>
+
+                <!-- Lyrics (Side on Desktop, Modal on Mobile) -->
                 <div class="lyrics-section" id="lyricsSection">
+                    <i class="fas fa-times lyrics-close" onclick="toggleLyrics()"></i>
                     <h2>Lyrics</h2>
-                    <div id="lyricsContainer" class="lyrics-container">
-                        <p class="lyrics-placeholder">Play a song to see lyrics</p>
+                    <div id="lyricsContent" class="lyrics-container">
+                        Play a song to see lyrics.
                     </div>
                 </div>
             </div>
@@ -65,82 +259,276 @@
 
     <!-- Player Bar -->
     <div class="player-bar">
+        <!-- Track Info -->
         <div class="now-playing">
-            <div class="img-container">
-                <img id="albumArt" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
-                <div id="loadingOverlay" class="loading-overlay" style="display:none;"><i class="fas fa-spinner fa-spin"></i></div>
-            </div>
+            <img id="albumArt" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
             <div class="track-info">
                 <div id="trackName" class="track-name">Not Playing</div>
                 <div id="artistName" class="artist-name"></div>
             </div>
-            <i id="playerLikeBtn" class="far fa-heart like-btn-player" onclick="toggleLikeCurrent()"></i>
-            <i id="lyricsToggleBtn" class="fas fa-microphone lyrics-icon" onclick="toggleLyricsPanel()"></i>
+            <!-- Heart Icon -->
+            <i id="likeBtn" class="far fa-heart" style="margin-left:10px; cursor:pointer;" onclick="toggleLikeCurrent()"></i>
         </div>
         
+        <!-- Controls -->
         <div class="player-controls">
             <div class="control-buttons">
-                <button onclick="seek(-10)" class="step"><i class="fas fa-backward"></i></button>
+                <button onclick="playPrev()" class="step"><i class="fas fa-step-backward"></i></button>
                 <button id="playPauseBtn" onclick="togglePlay()"><i class="fas fa-play-circle"></i></button>
-                <button onclick="playNextInQueue(true)" class="step"><i class="fas fa-forward"></i></button>
+                <button onclick="playNext()" class="step"><i class="fas fa-step-forward"></i></button>
+                <!-- Mobile Lyrics Toggle -->
+                <i id="lyricsToggleBtn" class="fas fa-microphone" onclick="toggleLyrics()"></i>
             </div>
             <div class="progress-container">
                 <span id="currentTime">0:00</span>
-                <input type="range" id="progressBar" value="0" max="100">
+                <input type="range" id="progressBar" value="0" max="100" oninput="seekAudio(this.value)">
                 <span id="duration">0:00</span>
             </div>
         </div>
 
+        <!-- Volume (Desktop only) -->
         <div class="volume-controls">
-            <!-- Volume Slider -->
+            <i class="fas fa-volume-up" style="margin-right:8px; color:#aaa;"></i>
             <div class="vol-slider-container">
-                <i class="fas fa-volume-down" style="font-size:12px; color:#aaa; margin-right:5px;"></i>
-                <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" oninput="setVolume(this.value)">
             </div>
         </div>
     </div>
 
-    <!-- Context Menu -->
-    <div id="contextMenu" class="context-menu">
-        <div class="context-menu-item" onclick="ctxAddToQueue()"><i class="fas fa-list-ul"></i> Add to Queue</div>
-        <div class="context-menu-item" onclick="ctxToggleLike()"><i class="fas fa-heart"></i> Toggle Like</div>
-    </div>
-
-    <div class="now-playing-modal" id="nowPlayingModal">
-        <i class="fas fa-times close-btn" onclick="toggleNowPlayingModal()"></i>
-        <img src="" id="nowPlayingModalAlbumArt" class="album-art">
-        <div class="track-info">
-            <div id="nowPlayingModalTrackName" class="track-name"></div>
-            <div id="nowPlayingModalArtistName" class="artist-name"></div>
-        </div>
-        <div class="progress-container">
-            <span id="nowPlayingModalCurrentTime">0:00</span>
-            <input type="range" id="nowPlayingModalProgressBar" value="0" max="100">
-            <span id="nowPlayingModalDuration">0:00</span>
-        </div>
-        <div class="control-buttons">
-            <button onclick="seek(-10)" class="step"><i class="fas fa-backward"></i></button>
-            <button id="nowPlayingModalPlayPauseBtn" onclick="togglePlay()"><i class="fas fa-play-circle"></i></button>
-            <button onclick="playNextInQueue(true)" class="step"><i class="fas fa-forward"></i></button>
-        </div>
-        <div class="volume-controls">
-            <div class="vol-slider-container">
-                <i class="fas fa-volume-down" style="font-size:12px; color:#aaa; margin-right:5px;"></i>
-                <input type="range" id="nowPlayingModalVolumeSlider" min="0" max="1" step="0.01" value="1">
-            </div>
-            <i class="fas fa-microphone lyrics-icon" onclick="toggleLyricsPanel()"></i>
-        </div>
-    </div>
-
+    <!-- Mobile Bottom Nav -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="showHome()"><i class="fas fa-home"></i><span>Home</span></div>
         <div class="nav-item" onclick="focusSearch()"><i class="fas fa-search"></i><span>Search</span></div>
-        <div class="nav-item" onclick="showFavourites()"><i class="fas fa-heart"></i><span>Lib</span></div>
-        <div class="nav-item" onclick="showQueue()"><i class="fas fa-list-ul"></i><span>Queue</span></div>
+        <div class="nav-item" onclick="showFavourites()"><i class="fas fa-heart"></i><span>Library</span></div>
     </div>
 
-    <audio id="audioPlayer" playsinline></audio>
+    <audio id="audioPlayer" playsinline style="display:none;"></audio>
 
-    <script src="/static/script.js"></script>
+    <script>
+        // --- STATE ---
+        let currentQueue = [];
+        let queueIndex = 0;
+        let currentSong = null;
+        let isPlaying = false;
+        
+        const audio = document.getElementById('audioPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBar = document.getElementById('progressBar');
+        
+        // --- INIT ---
+        window.onload = function() {
+            showHome();
+            setupAudioListeners();
+        };
+
+        // --- NAVIGATION ---
+        function showHome() {
+            document.getElementById('sectionTitle').innerText = "Top Charts";
+            fetch('/chart').then(r => r.json()).then(renderSongs);
+            updateActiveNav(0);
+        }
+        function focusSearch() {
+            document.getElementById('searchInput').focus();
+            updateActiveNav(1);
+        }
+        function showFavourites() {
+            document.getElementById('sectionTitle').innerText = "Your Library";
+            fetch('/api/likes').then(r => r.json()).then(renderSongs);
+            updateActiveNav(2);
+        }
+        function updateActiveNav(idx) {
+            document.querySelectorAll('.nav-item').forEach((el, i) => {
+                el.classList.toggle('active', i === idx);
+            });
+        }
+        function toggleLyrics() {
+            document.getElementById('lyricsSection').classList.toggle('active');
+        }
+
+        // --- API & SEARCH ---
+        function performSearch() {
+            const q = document.getElementById('searchInput').value;
+            if(!q) return;
+            document.getElementById('sectionTitle').innerText = "Search: " + q;
+            document.getElementById('resultsList').innerHTML = '<div style="text-align:center; padding:20px;">Searching...</div>';
+            fetch(`/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(renderSongs);
+        }
+
+        function renderSongs(songs) {
+            const list = document.getElementById('resultsList');
+            list.innerHTML = '';
+            if(!songs || songs.length === 0) { list.innerHTML = '<div style="padding:20px;">No songs found.</div>'; return; }
+            
+            // Update queue context only if not appending
+            const tempQueue = songs; 
+
+            songs.forEach((song, index) => {
+                const div = document.createElement('div');
+                div.className = 'song-item';
+                div.innerHTML = `
+                    <img src="${song.cover}" loading="lazy">
+                    <div class="song-info">
+                        <div class="song-title">${song.title}</div>
+                        <div class="song-artist">${song.artist}</div>
+                    </div>
+                    <button class="action-btn" onclick="event.stopPropagation(); toggleLikeDB(${index}, this)"><i class="far fa-heart"></i></button>
+                `;
+                div.onclick = () => playSongAtIndex(song, tempQueue, index);
+                list.appendChild(div);
+            });
+        }
+
+        // --- PLAYER LOGIC ---
+        function playSongAtIndex(song, queue, index) {
+            currentQueue = queue;
+            queueIndex = index;
+            loadSong(song);
+        }
+
+        function loadSong(song) {
+            currentSong = song;
+            
+            // UI Update
+            document.getElementById('trackName').innerText = song.title;
+            document.getElementById('artistName').innerText = song.artist;
+            document.getElementById('albumArt').src = song.cover;
+            document.getElementById('likeBtn').className = "far fa-heart"; // Reset like state visual for now
+            
+            // Metadata for Lock Screen (Mobile)
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: song.title,
+                    artist: song.artist,
+                    album: song.album,
+                    artwork: [{ src: song.cover_xl || song.cover, sizes: '512x512', type: 'image/jpeg' }]
+                });
+            }
+
+            // Cache Trigger
+            fetch('/api/cache_song', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(song)
+            });
+
+            // Get Lyrics
+            fetch(`/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('lyricsContent').innerText = d.lyrics || "No lyrics found.";
+                });
+
+            // Get Stream
+            fetch(`/play?id=${song.id}&artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.url) {
+                        if(data.source === 'youtube') {
+                            // Proxy YouTube streams to fix CORS/403 on mobile
+                            audio.src = `/stream_proxy?url=${encodeURIComponent(data.url)}`;
+                        } else {
+                            audio.src = data.url;
+                        }
+                        audio.play().catch(e => console.log("Auto-play blocked:", e));
+                        isPlaying = true;
+                        updatePlayBtn();
+                    } else {
+                        alert("Error loading song");
+                    }
+                });
+        }
+
+        function setupAudioListeners() {
+            audio.addEventListener('timeupdate', () => {
+                if(!isNaN(audio.duration)) {
+                    const pct = (audio.currentTime / audio.duration) * 100;
+                    progressBar.value = pct;
+                    document.getElementById('currentTime').innerText = formatTime(audio.currentTime);
+                    document.getElementById('duration').innerText = formatTime(audio.duration);
+                }
+            });
+            
+            audio.addEventListener('ended', playNext);
+            audio.addEventListener('play', () => { isPlaying = true; updatePlayBtn(); });
+            audio.addEventListener('pause', () => { isPlaying = false; updatePlayBtn(); });
+
+            if('mediaSession' in navigator) {
+                navigator.mediaSession.setActionHandler('play', togglePlay);
+                navigator.mediaSession.setActionHandler('pause', togglePlay);
+                navigator.mediaSession.setActionHandler('previoustrack', playPrev);
+                navigator.mediaSession.setActionHandler('nexttrack', playNext);
+            }
+        }
+
+        function togglePlay() {
+            if(!audio.src) return;
+            if(audio.paused) audio.play();
+            else audio.pause();
+        }
+
+        function updatePlayBtn() {
+            playPauseBtn.innerHTML = isPlaying ? '<i class="fas fa-pause-circle"></i>' : '<i class="fas fa-play-circle"></i>';
+        }
+
+        function playNext() {
+            if(currentQueue.length === 0) return;
+            queueIndex = (queueIndex + 1) % currentQueue.length;
+            loadSong(currentQueue[queueIndex]);
+        }
+
+        function playPrev() {
+            if(currentQueue.length === 0) return;
+            if(audio.currentTime > 3) { audio.currentTime = 0; return; }
+            queueIndex = (queueIndex - 1 + currentQueue.length) % currentQueue.length;
+            loadSong(currentQueue[queueIndex]);
+        }
+
+        function seekAudio(val) {
+            if(!isNaN(audio.duration)) {
+                audio.currentTime = (val / 100) * audio.duration;
+            }
+        }
+
+        function setVolume(val) {
+            audio.volume = val;
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return m + ':' + (sec < 10 ? '0' : '') + sec;
+        }
+
+        // --- LIKES ---
+        function toggleLikeCurrent() {
+            if(!currentSong) return;
+            toggleLikeDB(null, document.getElementById('likeBtn'), currentSong);
+        }
+
+        function toggleLikeDB(index, btnElem, songObj=null) {
+            const song = songObj || (currentQueue[index]);
+            fetch('/api/toggle_like', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ song: song })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.action === 'liked') {
+                    btnElem.classList.remove('far');
+                    btnElem.classList.add('fas');
+                    btnElem.style.color = 'var(--primary)';
+                } else {
+                    btnElem.classList.remove('fas');
+                    btnElem.classList.add('far');
+                    btnElem.style.color = 'inherit';
+                    if(document.getElementById('sectionTitle').innerText === "Your Library") {
+                         // Refresh if in library view
+                        showFavourites();
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
