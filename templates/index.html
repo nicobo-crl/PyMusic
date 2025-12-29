@@ -110,9 +110,19 @@
 
                                 /* MOBILE CSS */
                                 .bottom-nav {
-                                    display: none; position: fixed; bottom: 0; left: 0; width: 100%;
-                                    height: var(--nav-height); background: #121212; border-top: 1px solid #333; z-index: 101;
+                                    display: none;
+                                    position: fixed;
+                                    bottom: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    /* CHANGE: Calculate height to include the Safe Area (Home Bar) */
+                                    height: calc(var(--nav-height) + env(safe-area-inset-bottom));
+                                    background: #121212;
+                                    border-top: 1px solid #333;
+                                    z-index: 101;
+                                    /* Ensure icons stay centered in the top 60px, pushing padding to bottom */
                                     padding-bottom: env(safe-area-inset-bottom);
+                                    box-sizing: border-box; /* Ensures padding is part of height */
                                 }
                                 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #b3b3b3; font-size: 10px; }
                                 .nav-item i { font-size: 20px; margin-bottom: 4px; }
@@ -122,12 +132,12 @@
                                     .sidebar { display: none; }
                                     .bottom-nav { display: flex; }
 
-                                    /* FIXED: Padding increased to clear player (60px) + nav (60px) + safe area */
                                     .results-section {
-                                        padding: 10px 15px 200px 15px;
+                                        /* Increase padding so the last song isn't hidden behind the two bars */
+                                        padding: 10px 15px calc(130px + env(safe-area-inset-bottom)) 15px;
                                     }
 
-                                    /* Lyrics Modal */
+                                    /* Lyrics Modal Adjustment */
                                     .lyrics-section {
                                         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
                                         background: rgba(0,0,0,0.95); z-index: 200;
@@ -137,8 +147,12 @@
                                     .lyrics-section.active { transform: translateY(0); }
                                     .lyrics-close { display: block; position: absolute; top: 20px; right: 20px; font-size: 24px; padding: 10px; }
 
+                                    /* CRITICAL FIX: Push Player Bar up by Nav Height + Safe Area */
                                     .player-bar {
-                                        bottom: var(--nav-height); padding: 5px 10px; height: 60px; background: #1e1e1e;
+                                        bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+                                        padding: 5px 10px;
+                                        height: 60px;
+                                        background: #1e1e1e;
                                     }
                                     .now-playing { width: 65%; }
                                     .now-playing img { width: 40px; height: 40px; margin-right: 10px; }
