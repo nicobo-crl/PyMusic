@@ -9,6 +9,7 @@ import requests
 import sqlite3
 import random
 import json
+import re
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -145,17 +146,31 @@ def get_recommendations(artist_id):
     except: return []
 
 def fetch_lyrics(artist, title):
+    """
+    Fetches lyrics and returns a dictionary with 'type' (synced/plain/error) and 'text'.
+    """
     try:
+        print(f"[Backend] Fetching lyrics for: {artist} - {title}")
         resp = requests.get("https://lrclib.net/api/search", 
                            params={'artist_name': artist, 'track_name': title}, 
                            headers={'User-Agent': 'PyMusic/1.0'}, timeout=5)
         data = resp.json()
-        if isinstance(data, list):
+        
+        if isinstance(data, list) and len(data) > 0:
+            # 1. Prefer synced lyrics
             for item in data:
-                if item.get('syncedLyrics'): return item['syncedLyrics']
-                if item.get('plainLyrics'): return item['plainLyrics']
-        return "No lyrics found."
-    except: return "Lyrics unavailable."
+                if item.get('syncedLyrics'): 
+                    return {'type': 'synced', 'text': item['syncedLyrics']}
+            
+            # 2. Fallback to plain lyrics
+            for item in data:
+                if item.get('plainLyrics'): 
+                    return {'type': 'plain', 'text': item['plainLyrics']}
+                    
+        return {'type': 'error', 'text': "No lyrics found."}
+    except Exception as e: 
+        print(f"[Backend] Lyrics Error: {e}")
+        return {'type': 'error', 'text': "Lyrics unavailable."}
 
 # --- CACHING LOGIC ---
 def download_task(song_id, artist, title):
@@ -333,7 +348,9 @@ def chart(): return jsonify(get_chart())
 def recommend(): return jsonify(get_recommendations(request.args.get('artist_id')))
 
 @app.route('/lyrics')
-def lyrics(): return jsonify({'lyrics': fetch_lyrics(request.args.get('artist'), request.args.get('title'))})
+def lyrics():
+    # Return a direct JSON dictionary
+    return jsonify(fetch_lyrics(request.args.get('artist'), request.args.get('title')))
 
 @app.route('/stream_proxy')
 def stream_proxy():
