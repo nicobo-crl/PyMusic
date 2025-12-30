@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  pymusic:
+    build: .
+    container_name: pymusic
+    restart: unless-stopped
+    ports:
+      - "499:499"
+    volumes:
+      # Map the song cache folder
+      - ./song_cache:/app/song_cache
+      # Map a DATA FOLDER instead of a file
+      # Docker will auto-create this folder if missing
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+      # Optional: Set a specific secret key
+      - FLASK_SECRET_KEY=sjkdb.kajbd12excasdx
