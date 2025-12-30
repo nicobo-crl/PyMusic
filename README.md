@@ -8,8 +8,8 @@ A lightweight, web-based music streaming application built with Python (Flask). 
 ## ✨ Screenshots
 
 
-<img width="975" height="557" alt="Screenshot 2025-12-30 at 11-35-40 PyMusic(1)" src="https://github.com/user-attachments/assets/fd46bdac-c6a0-4a8e-aa2f-f2b08b8c1f31" />
-<img width="975" height="802" alt="Screenshot 2025-12-30 at 11-24-31 PyMusic" src="https://github.com/user-attachments/assets/0e66d7a2-ff2d-4897-9180-b8ed7429b118" />
+<img width="974" height="554" alt="Screenshot 2025-12-30 at 11-35-40 PyMusic(1)" src="https://github.com/user-attachments/assets/b250b63b-48cb-49f4-b5d7-59ec7dc34abb" />
+<img width="973" height="799" alt="Screenshot 2025-12-30 at 11-24-31 PyMusic" src="https://github.com/user-attachments/assets/87e8682e-d669-4a1f-9fb7-1f1f47e3f306" />
 <img width="970" height="801" alt="Screenshot 2025-12-30 112649" src="https://github.com/user-attachments/assets/c853d9df-e2e2-498b-8e8d-9b7dc60ad735" />
 <img width="975" height="802" alt="Screenshot 2025-12-30 at 11-24-47 PyMusic" src="https://github.com/user-attachments/assets/9a275713-e756-4634-9c09-bcd4afca9891" />
 
