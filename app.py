@@ -21,8 +21,18 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get("FLASK_ENV") == "production"
 
-DB_NAME = "pymusic.db"
+# --- DOCKER PATHS ---
+DATA_DIR = "data"
 CACHE_DIR = "song_cache"
+
+# Create folders if they don't exist (Crucial for Docker)
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR)
+
+# Save DB inside the data folder
+DB_NAME = os.path.join(DATA_DIR, "pymusic.db")
 
 # Thread Pool for downloads
 executor = ThreadPoolExecutor(max_workers=2)
