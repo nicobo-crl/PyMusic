@@ -6,12 +6,12 @@
 A lightweight, web-based music streaming application built with Python (Flask). It mimics the Spotify UI to provide a seamless listening experience without ads.
 
 ## ✨ Screenshots
-<img width="465" height="247" alt="Screenshot 2025-11-22 135458" src="https://github.com/user-attachments/assets/b6b607a2-34fb-44e3-b0f6-1f347098144b" />
-<img width="465" height="247" alt="Screenshot 2025-11-22 135527" src="https://github.com/user-attachments/assets/d462da87-b235-4ffc-95aa-ec4fda3f11be" />
-<img width="465" height="247" alt="Screenshot 2025-11-22 135544" src="https://github.com/user-attachments/assets/430da37f-78b8-44fb-9090-e566f5aab959" />
-<img width="465" height="247" alt="Screenshot 2025-11-22 135649" src="https://github.com/user-attachments/assets/518438bd-87bc-4a79-937f-44cb887334f3" />
-<img width="465" height="247" alt="Screenshot 2025-11-22 135615" src="https://github.com/user-attachments/assets/60f821bd-69df-4c26-b28c-f4e1b387eec6" />
 
+
+<img width="975" height="557" alt="Screenshot 2025-12-30 at 11-35-40 PyMusic(1)" src="https://github.com/user-attachments/assets/fd46bdac-c6a0-4a8e-aa2f-f2b08b8c1f31" />
+<img width="975" height="802" alt="Screenshot 2025-12-30 at 11-24-31 PyMusic" src="https://github.com/user-attachments/assets/0e66d7a2-ff2d-4897-9180-b8ed7429b118" />
+<img width="970" height="801" alt="Screenshot 2025-12-30 112649" src="https://github.com/user-attachments/assets/c853d9df-e2e2-498b-8e8d-9b7dc60ad735" />
+<img width="975" height="802" alt="Screenshot 2025-12-30 at 11-24-47 PyMusic" src="https://github.com/user-attachments/assets/9a275713-e756-4634-9c09-bcd4afca9891" />
 
 ## ✨ Features
 
@@ -38,27 +38,23 @@ A lightweight, web-based music streaming application built with Python (Flask). 
 2.  **FFmpeg** installed on your system (required by yt-dlp for audio processing).
 
 ### Installation
+## 🚀 Quick Start (Docker)
 
-1.  Clone the repository:
+The easiest way to run PyMusic is using Docker. You do not need to install Python or FFmpeg.
+
+1.  **Install Docker Desktop** (if you haven't already).
+2.  **Download the [docker-compose.yml](https://github.com/nicobo-crl/PyMusic/blob/main/docker-compose.yml)** file from this repository.
+3.  Open a terminal in the folder where you saved the file.
+4.  Run this command:
     ```bash
-    git clone https://github.com/nicobo-crl/PyMusic
-    cd PyMusic
+    docker-compose up -d
     ```
+5.  Open your browser to: `http://localhost:499`
 
-2.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+*Default Login:* `admin` / `admin123`
 
-3.  Run the application:
-    ```bash
-    python app.py
-    ```
 
-4.  Open your browser and go to:
-    `localhost:499`
-5.  The default user:
-   `admin` password: `mko09ijn`
+   
 ## ⚖️ Disclaimer
 
 This project is for **educational purposes only**. It demonstrates how to handle API requests, audio streaming, and frontend-backend integration in Python. 
