@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PyMusic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ version }}">
+</head>
+<body>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo"><i class="fas fa-music" style="color:var(--primary);"></i> PyMusic</div>
+            <ul>
+                <li onclick="showHome()" id="nav-home"><i class="fas fa-home"></i> Home</li>
+                <li onclick="focusSearch()" id="nav-search"><i class="fas fa-search"></i> Search</li>
+                <li onclick="showFavourites()" id="nav-library"><i class="fas fa-heart"></i> Library</li>
+                <li onclick="showQueue()" id="nav-queue"><i class="fas fa-list-ol"></i> Queue <span id="queueCount" style="background:var(--primary); color:white; padding:2px 6px; border-radius:10px; font-size:10px; display:none;">0</span></li>
+
+                <div style="margin-top: auto; border-top: 1px solid var(--separator); padding-top: 20px;">
+                    <li style="cursor: default; color: white; font-size: 12px; margin-bottom: 10px; opacity:0.7;">User: <strong>{{ username }}</strong></li>
+                    {% if role == 'admin' %}
+                    <li onclick="window.location.href='/admin'"><i class="fas fa-users-cog"></i> Admin</li>
+                    {% endif %}
+                    <li onclick="window.location.href='/logout'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+                </div>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="search-bar-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search songs, artists...">
+                <button class="search-btn" onclick="performSearch()">Search</button>
+            </div>
+
+            <div id="recentsContainer" class="recents-wrapper" style="display:none;">
+                <h3>Recently Played</h3>
+                <div id="recentsList" class="horizontal-scroll"></div>
+            </div>
+            
+            <div id="recommendationsContainer" class="recents-wrapper" style="display:none;">
+                <h3>Recommended for You</h3>
+                <div id="recommendationsList" class="horizontal-scroll"></div>
+            </div>
+
+            <h2 id="sectionTitle" style="margin-bottom: 20px;">Top Charts</h2>
+            <h2 id="chartTitle" style="display: none;">Top Charts</h2>
+
+            <div class="content-split">
+                <div class="results-section" id="resultsSection">
+                    <div id="resultsList" class="song-list">
+                        <div style="text-align:center; padding:20px; color:var(--text-gray);">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini Player -->
+    <div class="player-bar">
+        <div class="now-playing">
+            <div class="img-container">
+                <img id="albumArt" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+            </div>
+            <div class="track-info">
+                <div id="trackName" class="track-name">Not Playing</div>
+                <div id="artistName" class="artist-name">Select a song</div>
+            </div>
+            <i id="playerLikeBtn" class="far fa-heart like-btn" style="margin-left:10px;" onclick="toggleLikeCurrent()"></i>
+        </div>
+
+        <div class="player-controls">
+            <div class="control-buttons">
+                <button onclick="playPrevInQueue()" class="step"><i class="fas fa-backward-step"></i></button>
+                <button id="playPauseBtn" onclick="togglePlay()"><i class="fas fa-circle-play" style="font-size: 38px;"></i></button>
+                <button onclick="playNextInQueue()" class="step"><i class="fas fa-forward-step"></i></button>
+            </div>
+            <div class="progress-container">
+                <span id="currentTime">0:00</span>
+                <input type="range" id="progressBar" value="0" max="100">
+                <span id="duration">0:00</span>
+            </div>
+        </div>
+
+        <div class="volume-controls">
+            <div class="vol-slider-container">
+                <i class="fas fa-volume-up"></i>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+            </div>
+            <i class="fas fa-expand-alt lyrics-icon" onclick="toggleNowPlayingModal()" title="Full Screen"></i>
+        </div>
+    </div>
+
+    <!-- Mobile Nav -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="showHome()"><i class="fas fa-home"></i><span>Home</span></div>
+        <div class="nav-item" onclick="focusSearch()"><i class="fas fa-search"></i><span>Search</span></div>
+        <div class="nav-item" onclick="showFavourites()"><i class="fas fa-heart"></i><span>Library</span></div>
+        <div class="nav-item" onclick="showQueue()"><i class="fas fa-list-ul"></i><span>Queue</span></div>
+    </div>
+
+    <!-- FULL SCREEN PLAYER -->
+    <div id="fullPlayer" class="full-player-overlay">
+        <!-- Dynamic Gradient BG -->
+        <div id="fullPlayerBg" class="player-bg"></div>
+        
+        <div class="drag-handle-container" onclick="closeFullPlayer()">
+            <div class="drag-handle"></div>
+        </div>
+
+        <div class="player-content-wrapper">
+            
+            <!-- LEFT PANEL: ART, TEXT, CONTROLS -->
+            <div class="fp-left-panel">
+                <div class="fp-art-container">
+                    <img id="fpAlbumArt" src="" crossorigin="anonymous" alt="">
+                </div>
+
+                <div class="fp-info-row">
+                    <div class="fp-text">
+                        <div id="fpTrackName" class="fp-title">Track Name</div>
+                        <div id="fpArtistName" class="fp-artist">Artist Name</div>
+                    </div>
+                    <button class="fp-more-btn"><i class="fas fa-ellipsis-circle"></i></button>
+                </div>
+
+                <div class="fp-scrubber">
+                    <input type="range" id="fpProgressBar" value="0" max="100">
+                    <div class="fp-timestamps">
+                        <span id="fpCurrentTime">0:00</span>
+                        <span id="fpDuration">0:00</span>
+                    </div>
+                </div>
+
+                <div class="fp-transport">
+                    <button onclick="playPrevInQueue()"><i class="fas fa-backward-step"></i></button>
+                    <button id="fpPlayBtn" class="fp-play-btn" onclick="togglePlay()"><i class="fas fa-circle-play"></i></button>
+                    <button onclick="playNextInQueue()"><i class="fas fa-forward-step"></i></button>
+                </div>
+
+                <div class="fp-volume-row">
+                    <i class="fas fa-volume-low"></i>
+                    <input type="range" id="fpVolumeSlider" min="0" max="1" step="0.05" value="1">
+                    <i class="fas fa-volume-high"></i>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: LYRICS -->
+            <div id="fpLyricsView" class="fp-right-panel">
+                <div id="fpLyricsContainer" class="fp-lyrics-container">
+                    <div style="text-align:center; padding-top:100px; color:rgba(255,255,255,0.5);">Loading Lyrics...</div>
+                </div>
+                <!-- Mobile toggle button inside the panel -->
+                <button class="mobile-only" style="top:20px; right:20px; bottom:auto;" onclick="toggleMobileLyrics()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Button to open lyrics on Mobile -->
+            <button class="mobile-only" onclick="toggleMobileLyrics()"><i class="fas fa-quote-right"></i></button>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="ctxAddToQueue()"><i class="fas fa-list-ul"></i> Add to Queue</div>
+        <div class="context-menu-item" onclick="ctxToggleLike()"><i class="fas fa-heart"></i> Toggle Like</div>
+    </div>
+
+    <audio id="audioPlayer" playsinline style="display:none;"></audio>
+
+    <script src="{{ url_for('static', filename='script.js') }}?v={{ version }}"></script>
+</body>
+</html>

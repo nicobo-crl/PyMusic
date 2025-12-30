@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - PyMusic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Player</a>
+            <h1 style="margin:0; font-size:24px;">Admin Control Panel</h1>
+        </div>
+        
+        <h3>User Management</h3>
+        <div class="admin-card">
+            <div class="inline-form">
+                <form action="/add_user" method="POST" style="display:flex; gap:10px; width:100%;">
+                    <input type="text" name="username" class="auth-input" style="margin:0; flex:1;" placeholder="New Username" required autocomplete="off">
+                    <input type="password" name="password" class="auth-input" style="margin:0; flex:1;" placeholder="Password" required>
+                    <select name="role" class="auth-input" style="margin:0; width:100px;">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button type="submit" class="btn-primary" style="width:auto;"><i class="fas fa-plus"></i> Add</button>
+                </form>
+            </div>
+
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>#{{ user.id }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>
+                            <span class="role-tag {% if user.role == 'admin' %}admin{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.username != 'admin' and user.id != session.get('user_id') %}
+                            <a href="/delete_user/{{ user.id }}" class="btn-small btn-danger" style="text-decoration:none;" onclick="return confirm('Delete this user?');">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                            {% else %}
+                            <span style="color:var(--text-gray); font-size:12px;">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Data Management</h3>
+        <div class="admin-card" style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <strong style="display:block; margin-bottom:5px;">Cache Database Songs</strong>
+                <span style="font-size:13px; color:var(--text-gray);">Force download all songs liked by any user.</span>
+                <div style="font-size:13px; color:var(--primary); margin-top:5px;" id="cacheStats">Loading stats...</div>
+            </div>
+            <button onclick="triggerGlobalCache()" id="cacheBtn" class="btn-primary" style="width:auto;"><i class="fas fa-download"></i> Start Caching</button>
+        </div>
+
+    </div>
+
+    <script>
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/admin/cache_stats');
+                const data = await res.json();
+                document.getElementById('cacheStats').innerText = `Current Cache: ${data.count} files`;
+            } catch(e) { document.getElementById('cacheStats').innerText = "Stats unavailable"; }
+        }
+
+        async function triggerGlobalCache() {
+            if(!confirm("This will attempt to download all missing liked songs for ALL users. This increases server load. Continue?")) return;
+            
+            const btn = document.getElementById('cacheBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Started';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/admin/cache_all', { method: 'POST' });
+                const data = await res.json();
+                alert(`Caching process started for ${data.count} songs. Check server logs for progress.`);
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-check"></i> Done';
+                    loadStats();
+                }, 2000);
+            } catch(e) {
+                alert("Error triggering cache");
+                btn.innerHTML = 'Retry';
+                btn.disabled = false;
+            }
+        }
+
+        loadStats();
+    </script>
+</body>
+</html>
