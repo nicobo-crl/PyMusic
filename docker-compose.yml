@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   pymusic:
-    build: .
+    image: dsfnoj/pymusic:latest
     container_name: pymusic
     restart: unless-stopped
     ports:
@@ -17,3 +17,4 @@ services:
       - FLASK_ENV=production
       # Optional: Set a specific secret key
       - FLASK_SECRET_KEY=sjkdb.kajbd12excasdx
+      # enter your own secret (random) key here (used for encryption)
