@@ -53,6 +53,7 @@ The easiest way to run PyMusic is using Docker. You do not need to install Pytho
 
 *Default Login:* `admin` / `admin123`
 
+> **Note:** The application uses a SQLite database located at `data/pymusic.db`. All user data and likes are stored here.
 
    
 ## ⚖️ Disclaimer
