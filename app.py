@@ -54,9 +54,22 @@ def add_security_headers(response):
     response.headers['Accept-Ranges'] = 'bytes'
     return response
 
+def is_auth_enabled():
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            c = conn.cursor()
+            res = c.execute("SELECT value FROM settings WHERE key='auth_enabled'").fetchone()
+            return res[0] == '1' if res else True
+    except: return True
+
 # --- CSRF PROTECTION ---
 @app.before_request
 def csrf_protect():
+    if not session.get('user_id') and not is_auth_enabled():
+        session['user_id'] = 1
+        session['username'] = 'Admin'
+        session['role'] = 'admin'
+
     if request.method == "POST":
         referer = request.headers.get('Referer')
         origin = request.headers.get('Origin')
@@ -75,6 +88,12 @@ def init_db():
             c.execute('''CREATE TABLE IF NOT EXISTS likes 
                         (user_id INTEGER, song_id TEXT, song_data TEXT, 
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, song_id))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
+
+            c.execute("SELECT * FROM settings WHERE key = ?", ('auth_enabled',))
+            if not c.fetchone():
+                c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ('auth_enabled', '0'))
+
             c.execute("SELECT * FROM users WHERE username = ?", ('admin',))
             if not c.fetchone():
                 hashed_pw = generate_password_hash("admin123") 
@@ -245,6 +264,22 @@ def admin_cache_stats():
     if not session.get('user_id') or session.get('role') != 'admin': return "Unauthorized", 401
     files = [f for f in os.listdir(CACHE_DIR) if f.endswith('.m4a')]
     return jsonify({"count": len(files)})
+
+@app.route('/api/admin/settings', methods=['GET', 'POST'])
+def admin_settings():
+    if not session.get('user_id') or session.get('role') != 'admin': return "Unauthorized", 401
+    conn = get_db_connection()
+    if request.method == 'POST':
+        data = request.json
+        for key, value in data.items():
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
+
+    rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    conn.close()
+    return jsonify({row['key']: row['value'] for row in rows})
 
 @app.route('/admin')
 def admin_panel():
