@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   pymusic:
+    build: .
     image: dsfnoj/pymusic:latest
     container_name: pymusic
     restart: unless-stopped
